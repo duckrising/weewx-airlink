@@ -6,6 +6,7 @@ fetch stack down is exercised with mocks, and the xtype SQL paths run
 against an in-memory SQLite database."""
 
 import ast
+import contextlib
 import copy
 import datetime
 import importlib
@@ -54,9 +55,36 @@ log = logging.getLogger(__name__)
 # Set up logging using the defaults.
 weeutil.logger.setup('test_config', {})
 
-# A class whose *name* matches weewxd's shutdown exception.  weewxd raises
-# Terminate from its SIGTERM handler; airlink.py recognizes it by name.
-Terminate = type('Terminate', (Exception,), {})
+class Terminate(Exception):
+    """Stands in for weewxd's shutdown exception: installed as the running
+    weewxd's class for a test's duration by weewxd_running.  The extension
+    recognizes the running weewxd's own class, not the name."""
+
+class Impostor(Exception):
+    """Another module's class that happens to be called Terminate."""
+
+Impostor.__name__ = 'Terminate'
+
+@contextlib.contextmanager
+def weewxd_running(where='weewxd'):
+    """A weewxd whose Terminate is this file's, in sys.modules under
+    `where`: 'weewxd' as the console script has it, '__main__' as the
+    script launch has it."""
+    if where == '__main__':
+        with mock.patch.object(sys.modules['__main__'], 'Terminate', Terminate, create=True):
+            yield
+        return
+    if 'weewxd' in sys.modules:           # the real one, imported by something
+        with mock.patch.object(sys.modules['weewxd'], 'Terminate', Terminate, create=True):
+            yield
+        return
+    module = types.ModuleType('weewxd')
+    module.Terminate = Terminate          # type: ignore[attr-defined]
+    sys.modules['weewxd'] = module
+    try:
+        yield
+    finally:
+        del sys.modules['weewxd']
 
 # A type-6 /v1/current_conditions response as captured from a real AirLink.
 VALID_RESPONSE: Dict[str, Any] = {
@@ -375,6 +403,26 @@ class TestIsSane(unittest.TestCase):
                     self.assertFalse(sane)
                     self.assertIn(name, reason)
 
+    def test_a_concentration_beyond_the_ceiling_is_not_sane(self):
+        """A finite but enormous PM value passes the type checks, then
+        overflows in the AQI calculation.  Anything beyond PM_CEILING, either
+        way from zero, is rejected; the ceiling itself is accepted, and its
+        AQI computes."""
+        ceiling = user.airlink.PM_CEILING
+        for name in ('pm_2p5_last', 'pm_10_nowcast'):
+            for value in (1.7e308, -1.7e308, ceiling + 1, -ceiling - 1):
+                with self.subTest(name=name, value=value):
+                    j = valid_response()
+                    conditions(j)[name] = value
+                    sane, reason = user.airlink.is_sane(j)
+                    self.assertFalse(sane)
+                    self.assertIn(name, reason)
+        j = valid_response()
+        conditions(j)['pm_2p5_last'] = ceiling
+        sane, reason = user.airlink.is_sane(j)
+        self.assertTrue(sane, reason)
+        AQI.compute_pm2_5_aqi_color(AQI.compute_pm2_5_aqi(ceiling))
+
     def test_a_bool_last_reading_is_not_sane(self):
         j = valid_response()
         conditions(j)['pm_2p5_last'] = True
@@ -588,17 +636,62 @@ class TestPopulateRecord(unittest.TestCase):
 class TestTerminatePassThrough(unittest.TestCase):
     """weewxd stops by raising Terminate from its SIGTERM handler inside
     whatever the main thread is executing.  The broad exception handlers on
-    main-thread paths must hand it back."""
+    main-thread paths must hand it back.  The guard recognizes the running
+    weewxd's own class, so these tests install a stand-in with
+    weewxd_running; one checks the real weewxd's class is seen."""
 
-    def test_reraise_if_terminate(self):
-        with self.assertRaises(Terminate):
+    def test_the_shutdown_is_the_running_weewxds_terminate(self):
+        """The guard asks the running weewxd for its class -- __main__ when
+        weewxd.py runs as a script, weewxd under the console script --
+        rather than matching the name."""
+        reraise = user.airlink.reraise_if_terminate
+        reraise(Terminate())                    # no weewxd running: not the shutdown
+        for where in ('__main__', 'weewxd'):
+            with self.subTest(where=where):
+                with weewxd_running(where):
+                    with self.assertRaises(Terminate):
+                        reraise(Terminate())
+                    with self.assertRaises(Terminate):
+                        reraise(type('Subclass', (Terminate,), {})())
+                    reraise(Impostor())         # the name alone is not it
+                    reraise(ValueError('Terminate'))
+                reraise(Terminate())            # and gone with the module
+
+    def test_the_installed_weewxds_terminate_is_recognized(self):
+        """Against the real thing, not the stand-in: the venv's weewxd
+        defines the class weewxd's main loop catches.  A WeeWX release that
+        moved or renamed it would otherwise disarm the guard with every other
+        test green.  Removed from sys.modules again afterwards, so no later
+        test sees the real class where it expects the stand-in."""
+        fresh = 'weewxd' not in sys.modules
+        try:
+            import weewxd
+            self.assertTrue(issubclass(weewxd.Terminate, Exception))
+            with self.assertRaises(weewxd.Terminate):
+                user.airlink.reraise_if_terminate(weewxd.Terminate())
+            # The stand-in is not it while the real one is installed.
             user.airlink.reraise_if_terminate(Terminate())
-        # Any other exception is not re-raised.
-        self.assertIsNone(user.airlink.reraise_if_terminate(ValueError()))
+        finally:
+            if fresh:
+                sys.modules.pop('weewxd', None)
+
+    def test_the_guard_only_trusts_a_class(self):
+        """A module whose Terminate is not an exception class is skipped
+        rather than tripped over."""
+        with mock.patch.dict(sys.modules, {'weewxd': types.SimpleNamespace(Terminate='x')}), \
+                mock.patch.object(sys.modules['__main__'], 'Terminate', int, create=True):
+            user.airlink.reraise_if_terminate(Terminate())
+
+    def test_collect_data_treats_a_namesake_as_a_failure(self):
+        """A library exception that happens to be called Terminate is not
+        the shutdown: it is logged away like any other failure."""
+        with weewxd_running(), \
+                mock.patch('user.airlink.requests.get', side_effect=Impostor('not weewxd')):
+            self.assertIsNone(user.airlink.collect_data('airlink.example', 80, 10, 300))
 
     def test_collect_data_passes_terminate_through(self):
         with mock.patch('user.airlink.requests.get', side_effect=Terminate()):
-            with self.assertRaises(Terminate):
+            with weewxd_running(), self.assertRaises(Terminate):
                 user.airlink.collect_data('airlink.example', 80, 10, 300)
 
     def test_collect_data_swallows_other_exceptions(self):
@@ -610,14 +703,14 @@ class TestTerminatePassThrough(unittest.TestCase):
         class Exploder:
             def __getitem__(self, key):
                 raise Terminate()
-        with self.assertRaises(Terminate):
+        with weewxd_running(), self.assertRaises(Terminate):
             user.airlink.is_type(Exploder(), int, 'x')
 
     def test_convert_passes_terminate_through(self):
         class Exploder:
             def __getitem__(self, key):
                 raise Terminate()
-        with self.assertRaises(Terminate):
+        with weewxd_running(), self.assertRaises(Terminate):
             user.airlink.convert_data_structure_type_5_to_6({'data': Exploder()})
 
     def test_convert_swallows_other_exceptions(self):
@@ -1318,7 +1411,7 @@ class TestAskProxy(unittest.TestCase):
         self.assertFalse(a.reachable)
 
     def test_terminate_is_not_swallowed(self):
-        with self.assertRaises(Terminate):
+        with weewxd_running(), self.assertRaises(Terminate):
             self.ask(side_effect=Terminate('bye'))
 
 class TestFetchProxyArchiveRecords(unittest.TestCase):
@@ -1780,7 +1873,7 @@ class TestNewArchiveRecord(AirLinkServiceTestCase):
     def test_terminate_is_not_swallowed(self):
         a = self.make_airlink()
         with mock.patch.object(a, 'backfill_values', side_effect=Terminate('bye')):
-            with self.assertRaises(Terminate):
+            with weewxd_running(), self.assertRaises(Terminate):
                 a.new_archive_record(self.event({'dateTime': 2000, 'interval': 5}))
 
 class TestBackfillValues(AirLinkServiceTestCase):

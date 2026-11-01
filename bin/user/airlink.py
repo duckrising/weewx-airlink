@@ -206,11 +206,19 @@ def reraise_if_terminate(e: BaseException) -> None:
     """weewxd stops by raising Terminate from its SIGTERM signal handler --
     inside whatever the main thread is executing at that instant.  Every
     broad exception handler on a main-thread path must call this first and
-    hand the exception back, or weewx cannot shut down.  weewxd runs as
-    __main__, so its Terminate class cannot be imported here and is
-    recognized by name."""
-    if type(e).__name__ == 'Terminate':
-        raise e
+    hand the exception back, or weewx cannot shut down.
+
+    Asked of the class weewxd's own main loop catches, as the running
+    weewxd defines it: in sys.modules['__main__'] when weewxd.py runs as a
+    script, in sys.modules['weewxd'] under the console script.  (Importing
+    weewxd here would run it again and make a third class.)  Not by name --
+    a library's class called Terminate is not the shutdown.  Where neither
+    module defines one (weectl report run) nothing can raise it, and
+    nothing is re-raised."""
+    for name in ('__main__', 'weewxd'):
+        cls = getattr(sys.modules.get(name), 'Terminate', None)
+        if isinstance(cls, type) and issubclass(cls, BaseException) and isinstance(e, cls):
+            raise e
 
 def get_concentrations(cfg: Configuration):
     for source in cfg.sources:
@@ -316,6 +324,13 @@ def convert_data_structure_type_5_to_6(j: Dict[str, Any]) -> None:
         log.info('convert_data_structure_type_5_to_6: exception: %s' % e)
         # Let sanity check handle the issue.
 
+# The largest PM concentration, in µg/m³, either way from zero, that a
+# reading may carry.  Far beyond anything a sensor reports, and small enough
+# that the AQI calculation and the averaging of proxy records stay finite: a
+# finite but enormous value (1.7e308, or its negative) passes the type checks
+# and then overflows in the AQI calculation, on weewxd's main thread.
+PM_CEILING = 1_000_000.0
+
 def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
     if j['error'] is not None:
         return False, 'Error: %s' % j['error']
@@ -364,6 +379,9 @@ def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
              'pm_10_last_24_hours', 'pm_10_nowcast']:
         if not is_type(j['data']['conditions'][0], float, name, True):
             return False, 'Missing or malformed "%s" field' % name
+        value = j['data']['conditions'][0][name]
+        if value is not None and abs(value) > PM_CEILING:
+            return False, '"%s" is beyond any real concentration: %s' % (name, value)
 
     return True, ''
 

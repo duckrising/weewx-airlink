@@ -12,7 +12,8 @@
   record it backfilled would have been dropped as not sane.  Any field read
   as a decimal now also takes a whole number, and a true/false value is
   never accepted as a number.  A reading carrying NaN, Infinity or a
-  number too large to hold in any number field is now rejected as not
+  number too large to hold in any number field, or a PM concentration
+  beyond 1,000,000 µg/m³ either way from zero, is now rejected as not
   sane; the AQI calculation used to raise on each.
 - On WeeWX 5, the AQI's averages, lows and peaks are computed from pm2_5
   again: the sample report's day tiles and hourly strip, and the week,
@@ -51,6 +52,10 @@
   reads as formatted text on GitHub; it was changes.txt.
 - Internal: a test now requires that skin.conf set nothing any lang file
   sets, derived from the lang files themselves, as weewx-purple's does.
+- Internal: weewxd's shutdown is recognized as the running weewxd's own
+  Terminate class rather than by its name, as in weewx-purple and
+  weewx-airgradient, so another library's exception that happens to be
+  called Terminate is handled as the failure it is.
 
 ## 4.1.1 09/15/2026
 - The sample report renders again on Python 3.11 and earlier, which

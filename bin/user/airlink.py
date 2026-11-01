@@ -33,6 +33,7 @@ import weeutil.logger
 import weeutil.weeutil
 import weewx
 import weewx.accum
+import weewx.tags
 import weewx.units
 import weewx.xtypes
 
@@ -45,7 +46,7 @@ from weewx.engine import StdService
 
 log = logging.getLogger(__name__)
 
-WEEWX_AIRLINK_VERSION = "4.1.1"
+WEEWX_AIRLINK_VERSION = "4.2"
 
 if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 7):
     raise weewx.UnsupportedFeature(
@@ -257,10 +258,31 @@ def get_concentrations(cfg: Configuration):
     return None
 
 def is_type(j: Dict[str, Any], t, name: str, none_ok: bool = False) -> bool:
+    """Is j[name] a `t`?  A JSON number without a fraction arrives as an
+    int, so an int is accepted where a float is expected.  A bool is never
+    accepted as a number, though Python counts it as an int.  NaN, Infinity
+    and an integer too large for a float (all of which Python's JSON parser
+    accepts) are never accepted as a float: the AQI calculation raises on
+    each."""
     try:
         x = j[name]
         if x is None and none_ok:
             return True
+        if isinstance(x, bool) and t is not bool:
+            log.debug('%s is a bool, not an instance of %s: %s' % (name, t, j[name]))
+            return False
+        if t is float and isinstance(x, int):
+            # JSON integers have no size limit; one too large for a float
+            # would overflow in the AQI calculation.
+            try:
+                float(x)
+            except OverflowError:
+                log.debug('%s is too large for a float: %s' % (name, j[name]))
+                return False
+            return True
+        if isinstance(x, float) and not math.isfinite(x):
+            log.debug('%s is not a finite number: %s' % (name, j[name]))
+            return False
         if not isinstance(x, t):
             log.debug('%s is not an instance of %s: %s' % (name, t, j[name]))
             return False
@@ -319,7 +341,10 @@ def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
     if j['data']['conditions'][0]['data_structure_type'] != 6:
         return False, 'Expected data_structure_type of 6 (or type 5 auto converted to 6.'
 
-    for name in ['pm_1_last', 'pm_2p5_last', 'pm_10_last', 'last_report_time',
+    # The AirLink sends pm_*_last as whole numbers; an airlink-proxy archive
+    # record averages them, and may serve the fraction.  Both are accepted:
+    # they are checked as floats below, which takes an int too.
+    for name in ['last_report_time',
             'pct_pm_data_last_1_hour', 'pct_pm_data_last_3_hours',
             'pct_pm_data_nowcast', 'pct_pm_data_last_24_hours']:
         if not is_type(j['data']['conditions'][0], int, name, True):
@@ -332,7 +357,8 @@ def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
         if not is_type(j['data']['conditions'][0], float, name):
             return False, 'Missing or malformed "%s" field' % name
 
-    for name in ['pm_1', 'pm_2p5', 'pm_2p5_last_1_hour',
+    for name in ['pm_1_last', 'pm_2p5_last', 'pm_10_last',
+             'pm_1', 'pm_2p5', 'pm_2p5_last_1_hour',
              'pm_2p5_last_3_hours', 'pm_2p5_last_24_hours', 'pm_2p5_nowcast',
              'pm_10', 'pm_10_last_1_hour', 'pm_10_last_3_hours',
              'pm_10_last_24_hours', 'pm_10_nowcast']:
@@ -722,8 +748,20 @@ class AirLink(StdService):
         if source_count == 0:
             log.error('No sources configured for airlink extension.  AirLink extension is inoperable.')
         else:
-            weewx.xtypes.xtypes.append(AQI())
-            AQI.register_accumulator_extractors()
+            # At the FRONT of the chain.  Appended, it sits behind WeeWX 5's
+            # XTypeTable, which answers avg, min and max for any type it can
+            # get a scalar for: it averages the per-record AQIs instead of
+            # taking the AQI of the averaged pm2_5, takes the min and max of
+            # the colors as plain integers (yellow, 0xffff00, is the largest
+            # EPA color, so a Very Unhealthy day's peak came out yellow), and
+            # walks every record instead of the day summaries.
+            # Once per process: after some errors weewxd builds a new engine,
+            # and with it a new AirLink, without restarting, while both
+            # registries are module globals that outlive the engine.  A second
+            # registration would only stack another AQI ahead of the first.
+            if not any(isinstance(xtype, AQI) for xtype in weewx.xtypes.xtypes):
+                weewx.xtypes.xtypes.insert(0, AQI())
+                AQI.register_accumulator_extractors()
 
             with self.cfg.lock:
                 self.cfg.concentrations = get_concentrations(self.cfg)
@@ -1067,6 +1105,49 @@ class DevicePoller:
             log.debug('poll_device: Sleeping for %d seconds.' % self.cfg.poll_interval)
             time.sleep(self.cfg.poll_interval)
 
+def past_spans(day, report_time, count, seconds):
+    """The last `count` spans of exactly `seconds` each, oldest first, the
+    newest ending at `report_time`, as TimespanBinders that answer the same
+    tags $day does ($h.pm2_5.avg, $h.end).
+
+    For a template's trailing-day strip:
+        #from user.<this module> import past_spans
+        #for $h in past_spans($day, $current.dateTime.raw, 24, 3600)
+    The function name takes no $, like any other name a template imports.
+
+    Not $span($hour_delta=24) with .series(aggregate_interval=3600): both
+    step the station's wall clock (weeutil's archiveSpanSpan and
+    intervalgen), so across a daylight-saving change the day runs 23 or 25
+    hours, one bucket can run two, and inside the repeated hour the newest
+    hour is dropped.  These spans are elapsed seconds, with no clock to
+    step.
+
+    `day` is used only for what it was built with -- database lookup,
+    binding, formatter, converter and options -- so the spans format and
+    convert exactly as $day does.  Spans outside the archive are left out by
+    the rule WeeWX 5's ArchiveTable.get_series applies to its buckets: none
+    that ends at or before the first record, none from the first that starts
+    at or after the last, and none at all from an empty archive.  A young
+    station therefore gets fewer than `count`.
+    """
+    manager = day.db_lookup(day.data_binding)
+    first_ts = manager.first_timestamp
+    last_ts = manager.last_timestamp
+    if first_ts is None or last_ts is None:
+        return []
+    spans = []
+    for back in range(count, 0, -1):
+        start = report_time - back * seconds
+        stop = start + seconds
+        if stop <= first_ts:
+            continue
+        if start >= last_ts:
+            break
+        spans.append(weewx.tags.TimespanBinder(
+            weeutil.weeutil.TimeSpan(start, stop), day.db_lookup, day.data_binding,
+            'day', day.formatter, day.converter, **day.option_dict))
+    return spans
+
 class AQI(weewx.xtypes.XType):
     """
     AQI XType which computes the AQI (air quality index) from
@@ -1099,12 +1180,14 @@ class AQI(weewx.xtypes.XType):
         'usUnits': "SELECT usUnits from %(table_name)s ORDER BY dateTime DESC LIMIT 1;",
         'avg'    : "SELECT sum(wsum) / sum(sumtime) FROM %(table_name)s%(pm2_5_summary_suffix)s "
                    "WHERE dateTime >= %(start)s AND dateTime < %(stop)s ",
-        'min'    : "SELECT min FROM %(table_name)s%(pm2_5_summary_suffix)s "
-                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s "
-                   "ORDER BY min ASC LIMIT 1;",
-        'max'    : "SELECT max FROM %(table_name)s%(pm2_5_summary_suffix)s "
-                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s "
-                   "ORDER BY max DESC LIMIT 1;",
+        # MIN() and MAX(), not ORDER BY ... LIMIT 1: a day whose pm2_5 was
+        # NULL throughout (an outage's catch-up records) has a NULL min and
+        # max, and NULL sorts first, so the whole span's minimum came back
+        # None.  The aggregates skip NULLs.
+        'min'    : "SELECT MIN(min) FROM %(table_name)s%(pm2_5_summary_suffix)s "
+                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s;",
+        'max'    : "SELECT MAX(max) FROM %(table_name)s%(pm2_5_summary_suffix)s "
+                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s;",
     }
 
     # Maps each supported AQI observation type to the observation it is
@@ -1187,10 +1270,12 @@ class AQI(weewx.xtypes.XType):
             return (126 << 16) + 35              # Maroon
 
     @staticmethod
-    def get_scalar(obs_type, record, db_manager=None):
-        log.debug('get_scalar(%s)' % obs_type)
+    def get_scalar(obs_type, record, db_manager=None, **option_dict):
+        # The type check comes first: at the front of the chain, every
+        # scalar lookup on the station passes through here.
         if obs_type not in AQI.aqi_source_field:
             raise weewx.UnknownType(obs_type)
+        log.debug('get_scalar(%s)' % obs_type)
         if record is None:
             log.debug('get_scalar called where record is None.')
             raise weewx.CannotCalculate(obs_type)
@@ -1221,7 +1306,8 @@ class AQI(weewx.xtypes.XType):
             raise weewx.CannotCalculate(obs_type)
 
     @staticmethod
-    def get_series(obs_type, timespan, db_manager, aggregate_type=None, aggregate_interval=None):
+    def get_series(obs_type, timespan, db_manager, aggregate_type=None, aggregate_interval=None,
+                   **option_dict):
         """Get a series, possibly with aggregation.
         """
 
@@ -1241,7 +1327,7 @@ class AQI(weewx.xtypes.XType):
         if aggregate_type:
             # Yes. Just use the regular series function.
             return weewx.xtypes.ArchiveTable.get_series(obs_type, timespan, db_manager, aggregate_type,
-                                           aggregate_interval)
+                                           aggregate_interval, **option_dict)
         else:
             # No aggregation.
             sql_str = 'SELECT dateTime, usUnits, `interval`, pm2_5 FROM %s ' \

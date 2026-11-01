@@ -132,15 +132,17 @@ per hour for the last twenty-four, each colored by its category, so a smoke
 day is legible at a glance.  The four period plots are behind the
 Day/Week/Month/Year tabs at the foot of the page.
 
-It is translatable and ships German, French, Dutch and Spanish (see
-[Translations](#translations)).
+It is translatable and ships German, French, Dutch, Spanish, Danish,
+Italian, Norwegian and Swedish (see [Translations](#translations)).
 
 ### Translations
 
 The sample report is translatable through WeeWX's own mechanisms — lang files
 and gettext-style `[Texts]` keys (the English string is the key; a missing
-entry falls back to English one string at a time).  German, French, Dutch and
-Spanish ship (`skins/airlink/lang/de.conf`, `fr.conf`, `nl.conf`, `es.conf`;
+entry falls back to English one string at a time).  German, French, Dutch,
+Spanish, Danish, Italian, Norwegian and Swedish ship
+(`skins/airlink/lang/de.conf`, `fr.conf`, `nl.conf`, `es.conf`, `da.conf`,
+`it.conf`, `no.conf`, `sv.conf`;
 corrections welcome — [file an
 issue](https://github.com/chaunceygardiner/weewx-airlink/issues)); select one
 per report in `weewx.conf`:
@@ -148,7 +150,7 @@ per report in `weewx.conf`:
 ```
 [StdReport]
     [[AirLinkReport]]
-        lang = de                # or fr, nl, or es
+        lang = de                # or fr, nl, es, da, it, no or sv
 ```
 
 ![The sample report in German](AirLinkReport-de.png)

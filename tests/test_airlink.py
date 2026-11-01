@@ -10,11 +10,14 @@ import copy
 import datetime
 import importlib
 import io
+import json
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import sys
+import tempfile
 import threading
 import time
 import types
@@ -34,12 +37,17 @@ import weeutil.logger
 import weeutil.weeutil
 import weewx
 import weewx.accum
+import weewx.cheetahgenerator
+import weewx.manager
+import weewx.reportengine
+import weewx.station
+import weewx.tags
 import weewx.units
 import weewx.xtypes
 
 import user.airlink
 
-from user.airlink import AirLink, AQI, Concentrations, Configuration, Source
+from user.airlink import AirLink, AQI, Concentrations, Configuration, Source, past_spans
 
 log = logging.getLogger(__name__)
 
@@ -272,7 +280,22 @@ class TestIsType(unittest.TestCase):
 
     def test_wrong_type(self):
         self.assertFalse(user.airlink.is_type({'a': 'nan'}, int, 'a'))
-        self.assertFalse(user.airlink.is_type({'a': 1}, float, 'a'))
+        self.assertFalse(user.airlink.is_type({'a': 1.5}, int, 'a'))
+        self.assertFalse(user.airlink.is_type({'a': '1.5'}, float, 'a'))
+
+    def test_an_int_is_a_float(self):
+        """JSON has one number type: 9.0 serializes as 9, and arrives as an
+        int.  A field read as a float must take it."""
+        self.assertTrue(user.airlink.is_type({'a': 9}, float, 'a'))
+        self.assertTrue(user.airlink.is_type({'a': 0}, float, 'a'))
+
+    def test_a_bool_is_never_a_number(self):
+        """Python counts True as an int; a sensor or proxy that sends
+        true for a reading has sent garbage."""
+        for t in (int, float):
+            self.assertFalse(user.airlink.is_type({'a': True}, t, 'a'), t)
+            self.assertFalse(user.airlink.is_type({'a': False}, t, 'a', none_ok=True), t)
+        self.assertTrue(user.airlink.is_type({'a': True}, bool, 'a'))
 
     def test_none_ok(self):
         self.assertTrue(user.airlink.is_type({'a': None}, int, 'a', none_ok=True))
@@ -325,6 +348,39 @@ class TestIsSane(unittest.TestCase):
         # Nullable fields (lsid, averages, pct_pm_data_*) may all be null.
         sane, reason = user.airlink.is_sane(minimal_response())
         self.assertTrue(sane, reason)
+
+    def test_fractional_last_readings_are_sane(self):
+        """The AirLink sends pm_*_last as whole numbers, but an
+        airlink-proxy archive record averages them and may serve the
+        fraction.  Rejected, every backfilled record was dropped as not
+        sane."""
+        j = valid_response()
+        for name, value in [('pm_1_last', 4.5), ('pm_2p5_last', 9.25), ('pm_10_last', 11.0)]:
+            conditions(j)[name] = value
+        sane, reason = user.airlink.is_sane(j)
+        self.assertTrue(sane, reason)
+
+    def test_non_finite_numbers_are_not_sane(self):
+        """Python's JSON parser turns NaN and Infinity into floats, and a
+        400-digit integer into an int no float can hold; the AQI calculation
+        raises on each -- on weewxd's main thread, when the reading reaches a
+        loop packet.  A reading carrying one is garbage, in a whole-number
+        field or a decimal one."""
+        for name in ('pm_2p5_last', 'pm_2p5'):
+            for value in ('NaN', 'Infinity', '-Infinity', '1' + '0' * 400):
+                with self.subTest(name=name, value=value):
+                    j = valid_response()
+                    conditions(j)[name] = json.loads(value)
+                    sane, reason = user.airlink.is_sane(j)
+                    self.assertFalse(sane)
+                    self.assertIn(name, reason)
+
+    def test_a_bool_last_reading_is_not_sane(self):
+        j = valid_response()
+        conditions(j)['pm_2p5_last'] = True
+        sane, reason = user.airlink.is_sane(j)
+        self.assertFalse(sane)
+        self.assertIn('pm_2p5_last', reason)
 
     def test_error_response(self):
         j = valid_response()
@@ -838,7 +894,7 @@ class TestAirLinkInit(unittest.TestCase):
             'StdArchive': {'archive_interval': 300},
         }
         conc = fresh_concentrations()
-        n_xtypes = len(weewx.xtypes.xtypes)
+        orig_xtypes = list(weewx.xtypes.xtypes)
         orig_accum_maps = list(weewx.accum.accum_dict.maps)
         try:
             with mock.patch('user.airlink.get_concentrations', return_value=conc) as gc, \
@@ -850,9 +906,11 @@ class TestAirLinkInit(unittest.TestCase):
             self.assertEqual(a.cfg.archive_interval, 300)
             self.assertEqual(a.cfg.poll_interval, 5)
             self.assertEqual(len(a.cfg.sources), 2)   # disabled sources still parsed
-            # The AQI xtype is registered.
-            self.assertEqual(len(weewx.xtypes.xtypes), n_xtypes + 1)
-            self.assertIsInstance(weewx.xtypes.xtypes[-1], AQI)
+            # The AQI xtype is registered, at the FRONT of the chain, ahead
+            # of WeeWX 5's XTypeTable (see TestAggregateChainOrder).
+            self.assertEqual(len(weewx.xtypes.xtypes), len(orig_xtypes) + 1)
+            self.assertIsInstance(weewx.xtypes.xtypes[0], AQI)
+            self.assertEqual(weewx.xtypes.xtypes[1:], orig_xtypes)
             # The noop accumulator extractors are registered, so the archive
             # record can't shadow the xtype.
             self.assertEqual(
@@ -867,7 +925,7 @@ class TestAirLinkInit(unittest.TestCase):
         finally:
             # Unregister anything this test added to the global xtypes list
             # and the global accumulator config.
-            del weewx.xtypes.xtypes[n_xtypes:]
+            weewx.xtypes.xtypes[:] = orig_xtypes
             weewx.accum.accum_dict.maps[:] = orig_accum_maps
 
     def test_startup_without_sources_is_inoperable(self):
@@ -1283,6 +1341,10 @@ class TestFetchProxyArchiveRecords(unittest.TestCase):
         records, _ = self.fetch([archive_reading(), archive_reading(pm_2p5_last=15)])
         self.assertEqual([r['pm2_5'] for r in records], [9, 15])
 
+    def test_a_fractional_record_is_filled_in(self):
+        records, _ = self.fetch([archive_reading(pm_2p5_last=9.25)])
+        self.assertEqual([r['pm2_5'] for r in records], [9.25])
+
     def test_insane_records_are_skipped_not_fatal(self):
         bad = archive_reading()
         conditions(bad)['pm_2p5_last'] = 'nine'
@@ -1507,11 +1569,11 @@ class AirLinkServiceTestCase(unittest.TestCase):
     accumulator registries afterwards."""
 
     def setUp(self):
-        self._n_xtypes = len(weewx.xtypes.xtypes)
+        self._xtypes = list(weewx.xtypes.xtypes)
         self._accum_maps = list(weewx.accum.accum_dict.maps)
 
     def tearDown(self):
-        del weewx.xtypes.xtypes[self._n_xtypes:]
+        weewx.xtypes.xtypes[:] = self._xtypes
         weewx.accum.accum_dict.maps[:] = self._accum_maps
 
     def make_airlink(self, proxy=True, archive_interval=300,
@@ -2277,7 +2339,10 @@ class TestI18n(unittest.TestCase):
     REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SKIN_DIR = os.path.join(REPO_DIR, 'skins', 'airlink')
     LANG_DIR = os.path.join(SKIN_DIR, 'lang')
-    LANGUAGES = ['en', 'de', 'fr', 'nl', 'es']
+    LANGUAGES = ['en', 'de', 'fr', 'nl', 'es', 'da', 'it', 'no', 'sv']
+    # Seasons, which the shared vocabulary is pinned to, ships no Danish or
+    # Swedish; every other language here must have a Seasons original.
+    NOT_IN_SEASONS = {'da', 'sv'}
 
     @classmethod
     def lang_conf(cls, name: str) -> configobj.ConfigObj:
@@ -2335,6 +2400,45 @@ class TestI18n(unittest.TestCase):
                 self.assertTrue(val, (lang, key))
             self.assertEqual(set(conf['Labels']['Generic']),
                              set(en['Labels']['Generic']), lang)
+
+    @classmethod
+    def lang_paths(cls):
+        """Every (section-path, key) a shipped lang file sets, e.g.
+        (('Labels', 'Generic'), 'pm2_5')."""
+        found = set()
+
+        def walk(section, path):
+            for key in section.scalars:
+                found.add((path, key))
+            for name in section.sections:
+                walk(section[name], path + (name,))
+
+        for lang in cls.LANGUAGES:
+            walk(cls.lang_conf(lang + '.conf'), ())
+        return found
+
+    def test_skin_conf_repeats_nothing_a_lang_file_sets(self):
+        """skin.conf must not set anything any lang file sets.  WeeWX merges
+        skin.conf back OVER the lang file when `lang` is set in skin.conf, so
+        a repeated value shadows its translation -- a German page with
+        English plot titles.  The forbidden set is DERIVED from the lang
+        files rather than hardcoded, so a translator who starts localizing a
+        new key (say [[month_images]] x_label_format) is told that skin.conf
+        must give it up, instead of having the translation silently die."""
+        skin = configobj.ConfigObj(os.path.join(self.SKIN_DIR, 'skin.conf'),
+                                   encoding='utf-8', file_error=True)
+        clashes = []
+        for path, key in sorted(self.lang_paths()):
+            section = skin
+            for name in path:
+                if name not in section:
+                    break
+                section = section[name]
+            else:
+                if key in section:
+                    clashes.append('/'.join(path + (key,)))
+        self.assertEqual(clashes, [],
+                         'skin.conf repeats values the lang files set')
 
     def test_skin_conf_repeats_no_translatable_string(self):
         """skin.conf must carry no [Labels]/[Texts]/[Units] [[Labels]] of
@@ -2420,6 +2524,13 @@ class TestI18n(unittest.TestCase):
         ours = self.rendered_keys()
         for lang in self.LANGUAGES:
             if lang == 'en':
+                continue
+            path = os.path.join(seasons_lang, lang + '.conf')
+            # Named, not skipped on a missing file: a blanket skip would stop
+            # pinning a language Seasons does ship.  And a name here that
+            # Seasons has since gained is stale, and fails.
+            self.assertEqual(os.path.exists(path), lang not in self.NOT_IN_SEASONS, lang)
+            if lang in self.NOT_IN_SEASONS:
                 continue
             seasons = configobj.ConfigObj(
                 os.path.join(seasons_lang, lang + '.conf'),
@@ -2685,6 +2796,492 @@ class TestWeewxVersionFloor(unittest.TestCase):
         is."""
         for version in ['3.x', '2.anything', '3']:
             self.assertFalse(self.check(version), version)
+
+
+ARCHIVE_COLUMNS = ('pm1_0', 'pm2_5', 'pm10_0')
+
+def make_archive(directory: str, records=()) -> dict:
+    """A real SQLite archive, with daily summaries, under `directory`: the
+    three particulate columns WeeWX's schema carries, filled with `records`.
+    Returns the database dict."""
+    schema = {
+        'table': [('dateTime', 'INTEGER NOT NULL UNIQUE PRIMARY KEY'),
+                  ('usUnits', 'INTEGER NOT NULL'),
+                  ('interval', 'INTEGER NOT NULL')]
+                 + [(name, 'REAL') for name in ARCHIVE_COLUMNS],
+        'day_summaries': [(name, 'scalar') for name in ARCHIVE_COLUMNS],
+    }
+    db_dict = {'database_name': 'weewx.sdb', 'driver': 'weedb.sqlite',
+               'SQLITE_ROOT': directory}
+    with weewx.manager.DaySummaryManager.open_with_create(db_dict, schema=schema) as manager:
+        if records:
+            manager.addRecord(list(records), log_success=False)
+    return db_dict
+
+def pm_records(start_ts: int, stop_ts: int, step: int, pm2_5=8.0, extra=()):
+    """Records every `step` seconds from start_ts through stop_ts, all at
+    `pm2_5`, plus `extra` (dateTime, pm2_5) pairs off the grid."""
+    records = [{'dateTime': ts, 'usUnits': weewx.US, 'interval': step // 60,
+                'pm2_5': pm2_5} for ts in range(start_ts, stop_ts + 1, step)]
+    records += [{'dateTime': ts, 'usUnits': weewx.US, 'interval': step // 60,
+                 'pm2_5': value} for ts, value in extra]
+    return sorted(records, key=lambda r: r['dateTime'])
+
+
+class LosAngelesTime:
+    """Runs a test class in America/Los_Angeles, where the clock changes
+    these tests are about happen, and puts TZ back afterwards -- deleting it
+    if it was unset, since TZ='' means UTC rather than the system zone."""
+
+    @classmethod
+    def set_zone(cls):
+        cls._old_tz = os.environ.get('TZ')
+        os.environ['TZ'] = 'America/Los_Angeles'
+        time.tzset()
+
+    @classmethod
+    def restore_zone(cls):
+        if cls._old_tz is None:
+            del os.environ['TZ']
+        else:
+            os.environ['TZ'] = cls._old_tz
+        time.tzset()
+
+
+# Report times either side of the two 2026-27 clock changes, as UTC epochs:
+# a local time cannot name the second 01:10 on fall-back night.
+FALL_0110_PDT = 1793520600    # 2026-11-01 01:10 PDT, before the change
+FALL_0110_PST = 1793524200    # 2026-11-01 01:10 PST, in the repeated hour
+FALL_0310_PST = 1793531400    # 2026-11-01 03:10 PST
+FALL_2330_PST = 1793604600    # 2026-11-01 23:30 PST, still within a day of it
+SPRING_0305_PDT = 1805018700  # 2027-03-14 03:05 PDT, just after the change
+SPRING_1005_PDT = 1805043900  # 2027-03-14 10:05 PDT
+SPRING_0230_PDT = 1805103000  # 2027-03-15 02:30 PDT, still within a day of it
+PLAIN_1005_PDT = 1792515900   # 2026-10-20 10:05 PDT, no change in sight
+
+
+class TestAggregateChainOrder(AirLinkServiceTestCase):
+    """The service registers the AQI xtype AHEAD of WeeWX's own, so its
+    get_aggregate answers for both AQI types.  Registered behind them, WeeWX
+    5's XTypeTable answers avg, min and max by walking the records: the
+    mean of the per-record AQIs instead of the AQI of the mean pm2_5, and
+    the min and max of the colors as plain integers.  The registration here
+    is the service's own, against a real archive, so the whole chain runs
+    as it does in weewxd.  (WeeWX 4's XTypeTable, from 4.9, has no
+    get_aggregate, so there the order never mattered for aggregates.)"""
+
+    STOP = PLAIN_1005_PDT
+
+    def setUp(self):
+        super().setUp()
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        # Six records at 20.0 (AQI 68, Moderate, yellow), then six at 150.0
+        # (AQI 225, Very Unhealthy, purple).
+        records = [{'dateTime': self.STOP - 3600 + 300 * i, 'usUnits': weewx.US,
+                    'interval': 5, 'pm2_5': 20.0 if i <= 6 else 150.0}
+                   for i in range(1, 13)]
+        self.manager = weewx.manager.DaySummaryManager.open(make_archive(self.tmp, records))
+        self.addCleanup(self.manager.close)
+        self.span = weeutil.weeutil.TimeSpan(self.STOP - 3600, self.STOP)
+        self.make_airlink(proxy=False)
+
+    def aggregate(self, obs_type, aggregate_type):
+        return weewx.xtypes.get_aggregate(obs_type, self.span, aggregate_type, self.manager)[0]
+
+    def test_the_average_is_the_aqi_of_the_average_pm2_5(self):
+        aqi = AQI.compute_pm2_5_aqi(85.0)    # the mean of six 20s and six 150s
+        self.assertEqual(self.aggregate('pm2_5_aqi', 'avg'), aqi)
+        self.assertEqual(self.aggregate('pm2_5_aqi_color', 'avg'),
+                         AQI.compute_pm2_5_aqi_color(aqi))
+
+    def test_the_peak_and_low_colors_follow_the_reading(self):
+        """Yellow, 0xffff00, is the largest of the six EPA colors as an
+        integer, so a max over raw colors paints a Very Unhealthy hour
+        yellow."""
+        self.assertEqual(self.aggregate('pm2_5_aqi_color', 'max'), 0x8f3f97)
+        self.assertEqual(self.aggregate('pm2_5_aqi_color', 'min'), 0xffff00)
+
+    def test_a_second_service_registers_nothing_more(self):
+        """weewxd builds a new engine, and so a new AirLink, after some
+        errors without leaving the process; the xtype list and the
+        accumulator config outlive it.  The second service must not stack a
+        second AQI at the front, nor a second set of extractors."""
+        xtypes_after_first = list(weewx.xtypes.xtypes)
+        maps_after_first = list(weewx.accum.accum_dict.maps)
+        self.make_airlink(proxy=False)
+        self.assertEqual(weewx.xtypes.xtypes, xtypes_after_first)
+        self.assertEqual(weewx.accum.accum_dict.maps, maps_after_first)
+        self.assertEqual(sum(isinstance(x, AQI) for x in weewx.xtypes.xtypes), 1)
+
+    def test_other_types_pass_by_without_a_log_line(self):
+        """At the front of the chain, every scalar lookup on the station
+        reaches AQI first; one that is not AQI's is turned away before any
+        logging is done."""
+        with mock.patch.object(user.airlink.log, 'debug') as debug:
+            with self.assertRaises(weewx.UnknownType):
+                AQI.get_scalar('outTemp', {'outTemp': 70.0, 'usUnits': weewx.US})
+        debug.assert_not_called()
+
+    def test_the_options_weewx_passes_are_accepted(self):
+        """Report tags pass their options along.  Without **option_dict,
+        AQI raised TypeError on every such call -- for every type, now that
+        it is first -- and WeeWX retried it without them."""
+        record = {'dateTime': self.STOP, 'usUnits': weewx.US, 'pm2_5': 20.0}
+        self.assertEqual(AQI.get_scalar('pm2_5_aqi', record, self.manager, trend={})[0],
+                         AQI.compute_pm2_5_aqi(20.0))
+        _, stop, data = AQI.get_series('pm2_5_aqi', self.span, self.manager, trend={})
+        self.assertEqual(len(stop[0]), 12)
+        _, stop, data = AQI.get_series('pm2_5_aqi', self.span, self.manager,
+                                       aggregate_type='avg', aggregate_interval=3600, trend={})
+        self.assertEqual(data[0], [AQI.compute_pm2_5_aqi(85.0)])
+
+
+class TestDaySummaryMinMax(unittest.TestCase):
+    """Over whole days AQI reads min and max from the pm2_5 day summaries.
+    A day whose pm2_5 was NULL throughout -- an outage's catch-up records --
+    has a NULL min and max there, and must not blank the span's."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.day1 = int(weeutil.weeutil.startOfDay(PLAIN_1005_PDT))
+        self.day2 = int(weeutil.weeutil.startOfDay(self.day1 + 86400 + 7200))
+        self.day3 = int(weeutil.weeutil.startOfDay(self.day2 + 86400 + 7200))
+        records = pm_records(self.day1 + 1800, self.day2, 1800, pm2_5=20.0)
+        records += pm_records(self.day2 + 1800, self.day2 + 7200, 1800, pm2_5=None)
+        self.manager = weewx.manager.DaySummaryManager.open(make_archive(self.tmp, records))
+        self.addCleanup(self.manager.close)
+
+    def test_a_day_with_no_pm2_5_does_not_blank_the_low(self):
+        span = weeutil.weeutil.TimeSpan(self.day1, self.day3)
+        aqi = AQI.compute_pm2_5_aqi(20.0)
+        for obs_type, value in [('pm2_5_aqi', aqi),
+                                ('pm2_5_aqi_color', AQI.compute_pm2_5_aqi_color(aqi))]:
+            for aggregate_type in ('min', 'max'):
+                with self.subTest(obs_type=obs_type, aggregate_type=aggregate_type):
+                    self.assertEqual(AQI.get_aggregate(obs_type, span, aggregate_type,
+                                                       self.manager)[0], value)
+
+
+class TestPastSpans(LosAngelesTime, unittest.TestCase):
+    """past_spans() builds the hourly strip's 24 hours from elapsed seconds.
+    It is called here exactly as the template calls it, with a real
+    TimespanBinder for $day over a real archive, at report times on both
+    sides of both clock changes, and the hours are read back through the
+    AQI xtype at the front of the chain, as the service registers it.
+
+    What it replaced -- $span($hour_delta=24) bucketed by .series() -- gave
+    25 cells' worth of hours in 24 cells on fall-back day, one of them two
+    hours long, dropped the newest hour inside the repeated hour, and gave
+    23 cells for a day after spring-forward."""
+
+    DST_TIMES = [FALL_0110_PDT, FALL_0110_PST, FALL_0310_PST, FALL_2330_PST,
+                 SPRING_0305_PDT, SPRING_1005_PDT, SPRING_0230_PDT, PLAIN_1005_PDT]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.set_zone()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.restore_zone()
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        orig_xtypes = list(weewx.xtypes.xtypes)
+        weewx.xtypes.xtypes.insert(0, AQI())
+        self.addCleanup(weewx.xtypes.xtypes.__setitem__, slice(None), orig_xtypes)
+
+    def day(self, name, records, report_time):
+        """$day as the report engine builds it, over a fresh archive."""
+        directory = os.path.join(self.tmp, name)
+        os.makedirs(directory)
+        manager = weewx.manager.DaySummaryManager.open(make_archive(directory, records))
+        self.addCleanup(manager.close)
+        def db_lookup(data_binding=None):
+            self.assertEqual(data_binding, 'wx_binding')
+            return manager
+        return weewx.tags.TimespanBinder(
+            weeutil.weeutil.archiveDaySpan(report_time), db_lookup,
+            data_binding='wx_binding', context='day',
+            formatter=weewx.units.Formatter(), converter=weewx.units.Converter(),
+            trend={'time_delta': 10800})
+
+    def test_twenty_four_elapsed_hours_ending_at_the_report(self):
+        """Half-hourly records over the last 25 hours, every one at 8.0,
+        except one 60 s inside the oldest hour and one 60 s inside the newest:
+        each must land in its own end hour and nowhere else, which a span
+        out by even a minute would break."""
+        for report_time in self.DST_TIMES:
+            with self.subTest(report=time.strftime('%Y-%m-%d %H:%M %Z',
+                                                   time.localtime(report_time))):
+                oldest, newest = report_time - 86400 + 60, report_time - 60
+                day = self.day(str(report_time), pm_records(
+                    report_time - 25 * 3600, report_time, 1800,
+                    extra=[(oldest, 100.0), (newest, 200.0)]), report_time)
+                spans = past_spans(day, report_time, 24, 3600)
+
+                self.assertEqual(len(spans), 24)
+                self.assertEqual(spans[-1].end.raw, report_time)
+                for earlier, later in zip(spans, spans[1:]):
+                    self.assertEqual(later.start.raw, earlier.end.raw)
+                for span in spans:
+                    self.assertEqual(span.end.raw - span.start.raw, 3600)
+
+                peaks = [span.pm2_5.max.raw for span in spans]
+                self.assertEqual(peaks, [100.0] + [8.0] * 22 + [200.0])
+                # The newest hour holds 8.0 at -30 min and at the report
+                # time, plus the 200.0: the AQI of their mean, not the mean
+                # of their AQIs.
+                aqi = AQI.compute_pm2_5_aqi((8.0 + 8.0 + 200.0) / 3)
+                self.assertEqual(spans[-1].pm2_5_aqi.avg.raw, aqi)
+                self.assertEqual(spans[-1].pm2_5_aqi_color.avg.raw,
+                                 AQI.compute_pm2_5_aqi_color(aqi))
+
+    def test_a_gap_is_an_empty_hour_in_its_place(self):
+        """Two hours with no records, five to three hours back: still 24
+        spans, those two answering None (the template's gray cell) and every
+        other one its reading, so nothing closes up and shifts.  WeeWX 4's
+        get_series dropped None buckets, which shifted the cells there."""
+        report_time = FALL_0310_PST
+        records = [r for r in pm_records(report_time - 25 * 3600, report_time, 1800)
+                   if not report_time - 5 * 3600 < r['dateTime'] <= report_time - 3 * 3600]
+        day = self.day('gap', records, report_time)
+        spans = past_spans(day, report_time, 24, 3600)
+        self.assertEqual(len(spans), 24)
+        aqi = AQI.compute_pm2_5_aqi(8.0)
+        self.assertEqual([span.pm2_5_aqi.avg.raw for span in spans],
+                         [aqi] * 19 + [None, None] + [aqi] * 3)
+        self.assertEqual(spans[19].pm2_5_aqi_color.avg.raw, None)
+
+    def test_the_spans_carry_days_formatting_and_binding(self):
+        day = self.day('carry', pm_records(PLAIN_1005_PDT - 7200, PLAIN_1005_PDT, 1800),
+                       PLAIN_1005_PDT)
+        span = past_spans(day, PLAIN_1005_PDT, 24, 3600)[-1]
+        self.assertIs(span.db_lookup, day.db_lookup)
+        self.assertEqual(span.data_binding, 'wx_binding')
+        self.assertIs(span.formatter, day.formatter)
+        self.assertIs(span.converter, day.converter)
+        self.assertEqual(span.option_dict, {'trend': {'time_delta': 10800}})
+        self.assertEqual(span.context, 'day')
+
+    def test_a_young_archive_gets_only_the_hours_it_has(self):
+        """First record exactly three hours back: the hour ending AT it holds
+        that one record and is left out anyway.  That is WeeWX 5's own rule
+        for get_series -- no bucket ending at or before the first record --
+        and past_spans keeps it, so the strip matches what WeeWX 5 drew."""
+        day = self.day('young', pm_records(FALL_0310_PST - 3 * 3600, FALL_0310_PST, 1800),
+                       FALL_0310_PST)
+        spans = past_spans(day, FALL_0310_PST, 24, 3600)
+        self.assertEqual([span.end.raw for span in spans],
+                         [FALL_0310_PST - 7200, FALL_0310_PST - 3600, FALL_0310_PST])
+
+    def test_hours_past_the_archives_end_are_left_out(self):
+        """The last record 90 minutes before the report time: the newest
+        hour starts after it and is left out, the one before is kept.  No
+        template reaches this -- the report time is always a record's -- so
+        it is driven here directly."""
+        last = PLAIN_1005_PDT - 5400
+        day = self.day('ended', pm_records(PLAIN_1005_PDT - 25 * 3600, last, 1800),
+                       PLAIN_1005_PDT)
+        spans = past_spans(day, PLAIN_1005_PDT, 24, 3600)
+        self.assertEqual(len(spans), 23)
+        self.assertEqual(spans[-1].end.raw, PLAIN_1005_PDT - 3600)
+
+    def test_an_empty_archive_gets_none(self):
+        day = self.day('empty', (), PLAIN_1005_PDT)
+        self.assertEqual(past_spans(day, PLAIN_1005_PDT, 24, 3600), [])
+
+
+class TestSkinRender(LosAngelesTime, unittest.TestCase):
+    """The sample report rendered by WeeWX's own report engine -- the path
+    `weectl report run` takes -- over real archives, CheetahGenerator only
+    (no plots are drawn).  This is what proves the template's own wiring:
+    that it imports past_spans, calls it with $day and the report time, and
+    turns the spans into cells and axis labels.  Each scenario is rendered
+    once, in setUpClass.
+
+    - fall: the report in the repeated hour, 01:10 PST on 2026-11-01, with
+      the last three elapsed hours Moderate and the rest Good.
+    - spring: 10:05 PDT on 2027-03-14, the morning after spring-forward.
+    - enc: an ordinary day, the report's lang written with an encoding,
+      de.UTF-8.  WeeWX loads lang/de.conf for it, but the $lang it hands the
+      template keeps the encoding: 5.1 and later strip only a country.
+    - mod: the same day with lang = de@euro, a POSIX modifier, which every
+      WeeWX version hands the template unreduced (and loads no lang file for,
+      so the page itself is in English).
+    - lang: the same day with lang = de_DE.UTF-8, and $lang as WeeWX 4.6
+      through 5.0 hand it over: raw, country and all.  The SkinInfo patch
+      stands in for those versions; this suite runs on a later one."""
+
+    REPO_DIR = TestSkinCategoryTable.REPO_DIR
+
+    html: Dict[str, str] = {}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.set_zone()
+        cls.tmp = tempfile.mkdtemp()
+        orig_xtypes = list(weewx.xtypes.xtypes)
+        weewx.xtypes.xtypes.insert(0, AQI())
+        try:
+            cls.render_all()
+        except BaseException:
+            # tearDownClass does not run after a failed setUpClass.
+            cls.tearDownClass()
+            raise
+        finally:
+            weewx.xtypes.xtypes[:] = orig_xtypes
+
+    @classmethod
+    def render_all(cls):
+        cls.html = {
+            'fall': cls.render('fall', FALL_0110_PST, 'en', moderate_hours=3),
+            'spring': cls.render('spring', SPRING_1005_PDT, 'en'),
+            'enc': cls.render('enc', PLAIN_1005_PDT, 'de.UTF-8'),
+            'mod': cls.render('mod', PLAIN_1005_PDT, 'de@euro'),
+        }
+        original_init = weewx.cheetahgenerator.SkinInfo.__init__
+        def raw_lang(self, generator):
+            original_init(self, generator)
+            self.lang = generator.skin_dict.get('lang', 'en')
+        with mock.patch.object(weewx.cheetahgenerator.SkinInfo, '__init__', raw_lang):
+            cls.html['lang'] = cls.render('lang', PLAIN_1005_PDT, 'de_DE.UTF-8')
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp)
+        cls.restore_zone()
+
+    @classmethod
+    def render(cls, name, report_time, lang, moderate_hours=0) -> str:
+        """Render the report at `report_time` over a fresh archive of
+        half-hourly records, the last AT the report time, reaching back 26
+        hours -- past the strip's 24 even on fall-back day -- and return
+        index.html.  Every record is 8.0 (Good) except those in the last
+        `moderate_hours` elapsed hours, which are 20.0 (Moderate)."""
+        root = os.path.join(cls.tmp, name)
+        os.makedirs(root)
+        records = pm_records(report_time - 26 * 3600, report_time, 1800)
+        for record in records:
+            if record['dateTime'] > report_time - moderate_hours * 3600:
+                record['pm2_5'] = 20.0
+        make_archive(root, records)
+        html_root = os.path.join(root, 'html')
+        config_dict = configobj.ConfigObj({
+            'WEEWX_ROOT': root,
+            'Station': {'location': 'Palo Alto, CA', 'latitude': '37.4',
+                        'longitude': '-122.1', 'altitude': ['30', 'foot'],
+                        'station_type': 'Simulator'},
+            'StdArchive': {'data_binding': 'wx_binding'},
+            'StdReport': {
+                'SKIN_ROOT': os.path.join(cls.REPO_DIR, 'skins'),
+                'HTML_ROOT': html_root,
+                'AirLinkReport': {
+                    'skin': 'airlink', 'enable': 'true', 'lang': lang,
+                    'HTML_ROOT': html_root,
+                    'Generators': {'generator_list': 'weewx.cheetahgenerator.CheetahGenerator'},
+                },
+            },
+            'DataBindings': {'wx_binding': {
+                'database': 'archive_sqlite', 'table_name': 'archive',
+                'manager': 'weewx.manager.DaySummaryManager',
+                'schema': 'weewx.schemas.wview_extended.schema'}},
+            'Databases': {'archive_sqlite': {'database_name': 'weewx.sdb',
+                                             'database_type': 'SQLite'}},
+            'DatabaseTypes': {'SQLite': {'driver': 'weedb.sqlite', 'SQLITE_ROOT': root}},
+        })
+        stn_info = weewx.station.StationInfo(**config_dict['Station'])
+        with weewx.manager.DBBinder(config_dict) as db_binder:
+            record = db_binder.get_manager('wx_binding').getRecord(report_time)
+        weewx.reportengine.StdReportEngine(
+            config_dict, stn_info, record=record, gen_ts=report_time).run(['AirLinkReport'])
+        path = os.path.join(html_root, 'index.html')
+        if not os.path.exists(path):
+            return ''   # the template failed; each test says so in its own terms
+        with open(path, encoding='utf-8') as f:
+            return f.read()
+
+    def page(self, name: str) -> str:
+        html = self.html[name]
+        self.assertTrue(html, '%s: the template did not render (see the log)' % name)
+        return html
+
+    @staticmethod
+    def cell_labels(html: str) -> List[str]:
+        """Each strip cell's clock time, from its tooltip ("01:10: 44 AQI")."""
+        cells = re.search(r'<div class="strip-cells">(.*?)</div>', html, re.S)
+        assert cells, 'no strip on the page'
+        return [title.split(': ')[0] for title in
+                re.findall(r'<span style="background:[^;"]*;" title="([^"]*)"></span>',
+                           cells.group(1))]
+
+    @staticmethod
+    def axis_labels(html: str) -> List[str]:
+        axis = re.search(r'<div class="strip-axis">(.*?)</div>', html, re.S)
+        assert axis, 'no strip axis on the page'
+        return re.findall(r'<span>([^<]*)</span>', axis.group(1))
+
+    def test_fall_back_keeps_the_newest_hour_and_repeats_its_label(self):
+        """In the repeated hour: 24 cells, the newest ending at the report
+        time, and the two cells ending at 01:10 PDT and 01:10 PST side by
+        side -- the clock read 01:10 twice."""
+        labels = self.cell_labels(self.page('fall'))
+        self.assertEqual(len(labels), 24)
+        self.assertEqual(labels[0], '03:10')
+        self.assertEqual(labels[-3:], ['00:10', '01:10', '01:10'])
+        self.assertEqual(self.axis_labels(self.page('fall')),
+                         ['03:10', '11:10', '19:10', '01:10'])
+
+    def test_spring_forward_has_twenty_four_cells_and_no_two_oclock(self):
+        """The morning after: 24 cells, 02:05 never appears, and the axis
+        reads the report time at both ends, a day apart."""
+        labels = self.cell_labels(self.page('spring'))
+        self.assertEqual(len(labels), 24)
+        self.assertNotIn('02:05', labels)
+        self.assertEqual(self.axis_labels(self.page('spring')),
+                         ['10:05', '18:05', '03:05', '10:05'])
+
+    def test_hours_above_good_counts_elapsed_hours(self):
+        """The last three elapsed hours are Moderate, so three hours are
+        above Good.  The clock-stepped strip, which lost the newest hour in
+        the repeated hour, counted two."""
+        count = re.search(r'Hours above Good</div>\s*<div class="v">([^<]*)</div>',
+                          self.page('fall'))
+        assert count, 'no Hours above Good tile on the page'
+        self.assertEqual(count.group(1), '3')
+
+    def test_html_lang_is_a_bare_language_tag(self):
+        for name, tag in [('fall', 'en'), ('enc', 'de'), ('mod', 'de'), ('lang', 'de')]:
+            with self.subTest(name):
+                html_tag = re.search(r'<html lang="([^"]*)">', self.page(name))
+                assert html_tag, '%s: no <html lang> on the page' % name
+                self.assertEqual(html_tag.group(1), tag)
+
+
+class TestNoWallClockSpans(unittest.TestCase):
+    """The template builds trailing hours with past_spans() only.  $span(),
+    a .series() with an aggregate_interval, and TimespanBinder.spans() all
+    step the station's wall clock (weeutil's archiveSpanSpan and
+    intervalgen).  Comment lines are skipped: they explain what was
+    replaced, by name."""
+
+    BANNED = ('$span(', '.series(', 'aggregate_interval', '.spans(')
+
+    def test_no_wall_clock_spans_in_the_templates(self):
+        skin_dir = os.path.join(TestSkinCategoryTable.REPO_DIR, 'skins', 'airlink')
+        templates = [name for name in sorted(os.listdir(skin_dir))
+                     if name.endswith(('.tmpl', '.inc'))]
+        self.assertIn('index.html.tmpl', templates)
+        for name in templates:
+            with open(os.path.join(skin_dir, name), encoding='utf-8') as f:
+                for number, line in enumerate(f, 1):
+                    if line.lstrip().startswith('##'):
+                        continue
+                    for banned in self.BANNED:
+                        self.assertNotIn(banned, line, '%s:%d' % (name, number))
 
 
 if __name__ == '__main__':

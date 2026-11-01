@@ -93,8 +93,9 @@ behind the Day/Week/Month/Year tabs at the foot of the page:
 Good.  The other five colors on the dial are there for the days that are
 not.*
 
-The page is translatable, and German, French, Dutch and Spanish ship with
-it — see [Translating the sample report](i18n.md):
+The page is translatable, and German, French, Dutch, Spanish, Danish,
+Italian, Norwegian and Swedish ship with it — see
+[Translating the sample report](i18n.md):
 
 ![The sample report in German](https://raw.githubusercontent.com/chaunceygardiner/weewx-airlink/master/AirLinkReport-de.png)
 

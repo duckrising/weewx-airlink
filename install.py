@@ -150,7 +150,7 @@ def loader():
 class AirLinkInstaller(ExtensionInstaller):
     def __init__(self):
         super(AirLinkInstaller, self).__init__(
-            version="4.1.1",
+            version="4.2",
             name='airlink',
             description='Record air quality as provided by a Davis AirLink sensor.',
             author="John A Kline",
@@ -174,6 +174,10 @@ class AirLinkInstaller(ExtensionInstaller):
                     'skins/airlink/lang/fr.conf',
                     'skins/airlink/lang/nl.conf',
                     'skins/airlink/lang/es.conf',
+                    'skins/airlink/lang/da.conf',
+                    'skins/airlink/lang/it.conf',
+                    'skins/airlink/lang/no.conf',
+                    'skins/airlink/lang/sv.conf',
                 ]),
             ]
         )

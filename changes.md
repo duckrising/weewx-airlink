@@ -1,6 +1,47 @@
 # weewx-airlink change history
 
-## 4.1.2 (pending)
+## 4.2 11/01/2026
+- The sample report ships in Danish, Italian, Norwegian (Bokmål) and
+  Swedish, as well as German, French, Dutch and Spanish: set `lang = da`,
+  `it`, `no` or `sv` on the report.  The Italian and Norwegian plot-period
+  tabs are WeeWX's own Seasons translations.  Corrections welcome -- file an
+  issue at https://github.com/chaunceygardiner/weewx-airlink/issues.
+- A reading whose pm1_0, pm2_5 or pm10_0 carries a fraction is accepted.
+  The AirLink sends those three as whole numbers, but an airlink-proxy
+  archive record averages them; had a proxy served the fraction, every
+  record it backfilled would have been dropped as not sane.  Any field read
+  as a decimal now also takes a whole number, and a true/false value is
+  never accepted as a number.  A reading carrying NaN, Infinity or a
+  number too large to hold in any number field is now rejected as not
+  sane; the AQI calculation used to raise on each.
+- On WeeWX 5, the AQI's averages, lows and peaks are computed from pm2_5
+  again: the sample report's day tiles and hourly strip, and the week,
+  month and year AQI plots.  WeeWX's own generic code had been answering
+  first, averaging the AQI of each record rather than taking the AQI of
+  the average pm2_5, and comparing colors as plain numbers, so a Very
+  Unhealthy day could show a yellow peak swatch.  The extension now
+  registers its AQI ahead of WeeWX's, as weewx-purple has since 3.9, which
+  also lets those aggregates use the daily summaries instead of reading
+  every record.  WeeWX 4 was not affected.
+- The lowest AQI over a span of whole days -- `$week.pm2_5_aqi.min` and
+  the like, and its color -- is no longer blank when one of those days had
+  no pm2_5 at all, such as the catch-up records an outage leaves behind.
+- The sample report's "last 24 hours" strip now covers exactly the last 24
+  hours, one cell per hour, across a daylight-saving change.  It used to
+  count hours on the clock, so for a day after the clocks fell back it
+  covered 25 hours, with one cell two hours long and, during the repeated
+  hour, the newest hour missing; for a day after they sprang forward it
+  covered 23.  "Hours above Good" counts from the same cells.  Across a
+  change two cells can now carry the same clock time, truthfully: in the
+  fall the two hours ending in the repeated hour, and in the spring the
+  strip's two ends, a day apart.  On
+  WeeWX 4, an hour with no data is now a gray cell in its place, as on
+  WeeWX 5, rather than being dropped and closing up the strip.
+- The sample report's `<html lang>` attribute is a plain language tag
+  ("de") even when the report's lang is written as a locale.  A lang with
+  an encoding or a modifier reached the page with it (de.UTF-8, de@euro),
+  and before WeeWX 5.1 with its country too (de_DE.UTF-8); none of them
+  passes HTML validation.
 - When fresh concentrations arrive after an outage, the log line saying so
   now says how long they were missing ("Fresh concentrations available again
   after 13 min."), so an outage can be read whole from that one line,
@@ -8,6 +49,8 @@
   began it is in an earlier log.
 - Internal: the change history is now changes.md, in Markdown, so it
   reads as formatted text on GitHub; it was changes.txt.
+- Internal: a test now requires that skin.conf set nothing any lang file
+  sets, derived from the lang files themselves, as weewx-purple's does.
 
 ## 4.1.1 09/15/2026
 - The sample report renders again on Python 3.11 and earlier, which

@@ -13,6 +13,7 @@
 #errorCatcher Echo
 #encoding UTF-8
 #from weewx.units import ValueHelper
+#from user.airlink import past_spans
 #import bisect
 #import html
 #import math
@@ -67,8 +68,16 @@
 #else
 #set $heading = $gettext("Air Quality")
 #end if
+## Reduce the language spec to a bare tag for the lang attribute.  WeeWX
+## hands the template the spec it was given, less at most a country: 5.1 and
+## later strip a country but not an encoding or a modifier ("de.UTF-8" and
+## "de@euro" stay as they are), and 4.6 through 5.0 strip nothing
+## ("de_DE.UTF-8").  None is a valid language tag, so the page fails
+## validation.  Stripping the modifier, the encoding and the country covers
+## them all.
+#set $html_lang = $lang.split('@')[0].split('.')[0].split('_')[0]
 <!DOCTYPE html>
-<html lang="$lang">
+<html lang="$html_lang">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -266,17 +275,25 @@
 #set $peak_swatch = '#%06x' % int($day.pm2_5_aqi_color.max.raw)
 #set $mean_swatch = '#%06x' % int($day.pm2_5_aqi_color.avg.raw)
 #set $low_swatch  = '#%06x' % int($day.pm2_5_aqi_color.min.raw)
-## Two series over the same trailing day: the colors paint the cells, the
-## AQIs supply the count and the per-cell tooltip.  Averaging a color is
-## meaningful here only because the xtype averages the underlying pm2_5 and
-## colors THAT -- see AQI.get_aggregate.  ArchiveTable.get_series skips the
-## buckets that fall outside the archive's own span, so this can come back
-## with fewer than 24 entries, or none at all; everything downstream of it
-## is guarded on $stops rather than assuming 24.
-#set $strip_colors = $span($hour_delta=24).pm2_5_aqi_color.series(aggregate_type='avg', aggregate_interval=3600)
-#set $strip_aqis = $span($hour_delta=24).pm2_5_aqi.series(aggregate_type='avg', aggregate_interval=3600)
-#set $stops = $strip_colors.stop.raw
-#set $hourly = $strip_aqis.data.raw
+## The trailing 24 hours, one span per ELAPSED hour, from past_spans() in
+## airlink.py.  Not $span($hour_delta=24) with .series(aggregate_interval=3600):
+## both step the station's wall clock, so across a daylight-saving change the
+## strip ran 23 or 25 hours, one cell could cover two, and inside the repeated
+## hour the newest hour went missing.  Each span gives the hour's end, its
+## average AQI (the count and the per-cell tooltip) and its average color
+## (the cell).  Averaging a color is meaningful only because the xtype
+## averages the underlying pm2_5 and colors THAT -- see AQI.get_aggregate.
+## Spans outside the archive are left out, so a young station gets fewer than
+## 24, or none at all; everything downstream is guarded on $stops rather than
+## assuming 24.
+#set $stops = []
+#set $hourly = []
+#set $colors = []
+#for $h in past_spans($day, $current.dateTime.raw, 24, 3600)
+#silent $stops.append($h.end.raw)
+#silent $hourly.append($h.pm2_5_aqi.avg.raw)
+#silent $colors.append($h.pm2_5_aqi_color.avg.raw)
+#end for
 #set $above = 0
 #for $v in $hourly
 #if $v is not None and $v > $aqi_tops[0]
@@ -289,7 +306,7 @@
 ## $current.dateTime -- and the 'day' context is the one skin.conf sets to
 ## %H:%M, which is what these narrow labels need and what a station overrides.
 #set $cells = []
-#for $i, $c in enumerate($strip_colors.data.raw)
+#for $i, $c in enumerate($colors)
 #set $stamp = str(ValueHelper(($stops[$i], 'unix_epoch', 'group_time'), 'day', $current.formatter))
 #if $c is None or $hourly[$i] is None
 #silent $cells.append(('#e7ebef', $stamp))
@@ -297,10 +314,13 @@
 #silent $cells.append(('#%06x' % int($c), '%s: %d%s' % ($stamp, int($hourly[$i]), $unit.label.pm2_5_aqi)))
 #end if
 #end for
-## Four evenly spaced labels -- but de-duplicated, because a series with
-## fewer than four buckets (a station whose archive is an hour or two old)
-## would otherwise repeat one: two buckets give [0, 0, 1, 1], and the axis
-## reads 14:10 14:10 15:10 15:10.
+## Four evenly spaced labels -- but de-duplicated, because fewer than four
+## spans (a station whose archive is an hour or two old) would otherwise
+## repeat one: two spans give [0, 0, 1, 1], and the axis reads 14:10 14:10
+## 15:10 15:10.  A label is a clock time, so across a daylight-saving change
+## two can read alike, truthfully: in the fall, the two adjacent cells ending
+## in the repeated hour (never both on the axis once there are seven or more
+## cells), and in the spring, the axis's two ends, a day apart.
 #set $axis = []
 #set $axis_seen = []
 #for $i in ([0, len($stops) // 3, 2 * len($stops) // 3, len($stops) - 1] if $stops else [])

@@ -160,14 +160,14 @@ The install also enables an `[[AirLinkReport]]` entry under `[StdReport]`,
 rendered to `<HTML_ROOT>/airlink`.  It takes its heading and browser title
 from `[Station]` `location`, so it reads *Palo Alto, CA Air Quality* rather
 than naming this extension; a station that has set no location gets a plain
-*Air Quality*.  To render it in German, French, Dutch or Spanish, add a
-`lang` entry to its stanza — see
+*Air Quality*.  To render it in German, French, Dutch, Spanish, Danish,
+Italian, Norwegian or Swedish, add a `lang` entry to its stanza — see
 [Translating the sample report](i18n.md):
 
 ```
 [StdReport]
     [[AirLinkReport]]
-        lang = de                # or fr, nl, or es
+        lang = de                # or fr, nl, es, da, it, no or sv
 ```
 
 ## Customizing the sample report

@@ -50,7 +50,10 @@ WEEWX_AIRLINK_VERSION = "4.2"
 
 if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 7):
     raise weewx.UnsupportedFeature(
-        "weewx-airlink requires Python 3.7 or later, found %s.%s" % (sys.version_info[0], sys.version_info[1]))
+        "weewx-airlink requires Python 3.7 or later, found %s.%s"
+        % (sys.version_info[0], sys.version_info[1])
+    )
+
 
 def weewx_version_at_least(minimum: Tuple[int, ...]) -> bool:
     """Is the running WeeWX at least `minimum` (e.g. (4, 6))?
@@ -61,8 +64,8 @@ def weewx_version_at_least(minimum: Tuple[int, ...]) -> bool:
     4.6, so it is missing from some of the versions this has to reject.
     """
     running: List[int] = []
-    for chunk in weewx.__version__.split('.')[:len(minimum)]:
-        digits = ''
+    for chunk in weewx.__version__.split(".")[: len(minimum)]:
+        digits = ""
         for char in chunk:
             if not char.isdigit():
                 break
@@ -70,7 +73,7 @@ def weewx_version_at_least(minimum: Tuple[int, ...]) -> bool:
         if not digits:
             # A chunk we cannot parse.  If what we DID parse already settles
             # it -- "3.x" is below (4, 6) whatever the x -- say so.
-            if tuple(running) < minimum[:len(running)]:
+            if tuple(running) < minimum[: len(running)]:
                 return False
             # Otherwise accept: the cost of wrongly allowing an old WeeWX is
             # a demo page that renders its own $gettext placeholders, while
@@ -86,40 +89,41 @@ def weewx_version_at_least(minimum: Tuple[int, ...]) -> bool:
 # verbatim, so on an older WeeWX the page renders its own source text.
 if not weewx_version_at_least((4, 6)):
     raise weewx.UnsupportedFeature(
-        "weewx-airlink requires WeeWX 4.6 or later, found %s" % weewx.__version__)
+        "weewx-airlink requires WeeWX 4.6 or later, found %s" % weewx.__version__
+    )
 
 # Set up observation types not in weewx.units
 
-weewx.units.USUnits['air_quality_index']       = 'aqi'
-weewx.units.MetricUnits['air_quality_index']   = 'aqi'
-weewx.units.MetricWXUnits['air_quality_index'] = 'aqi'
+weewx.units.USUnits["air_quality_index"] = "aqi"
+weewx.units.MetricUnits["air_quality_index"] = "aqi"
+weewx.units.MetricWXUnits["air_quality_index"] = "aqi"
 
-weewx.units.USUnits['air_quality_color']       = 'aqi_color'
-weewx.units.MetricUnits['air_quality_color']   = 'aqi_color'
-weewx.units.MetricWXUnits['air_quality_color'] = 'aqi_color'
+weewx.units.USUnits["air_quality_color"] = "aqi_color"
+weewx.units.MetricUnits["air_quality_color"] = "aqi_color"
+weewx.units.MetricWXUnits["air_quality_color"] = "aqi_color"
 
-weewx.units.default_unit_label_dict['aqi']  = ' AQI'
-weewx.units.default_unit_label_dict['aqi_color'] = ' RGB'
+weewx.units.default_unit_label_dict["aqi"] = " AQI"
+weewx.units.default_unit_label_dict["aqi_color"] = " RGB"
 
-weewx.units.default_unit_format_dict['aqi']  = '%d'
-weewx.units.default_unit_format_dict['aqi_color'] = '%d'
+weewx.units.default_unit_format_dict["aqi"] = "%d"
+weewx.units.default_unit_format_dict["aqi_color"] = "%d"
 
-weewx.units.obs_group_dict['pm1_0_1m'] = 'group_concentration'
-weewx.units.obs_group_dict['pm10_0_1m'] = 'group_concentration'
-weewx.units.obs_group_dict['pm2_5_aqi'] = 'air_quality_index'
-weewx.units.obs_group_dict['pm2_5_aqi_color'] = 'air_quality_color'
-weewx.units.obs_group_dict['pm2_5_1m'] = 'group_concentration'
-weewx.units.obs_group_dict['pm2_5_1m_aqi'] = 'air_quality_index'
-weewx.units.obs_group_dict['pm2_5_1m_aqi_color'] = 'air_quality_color'
-weewx.units.obs_group_dict['pm2_5_nowcast'] = 'group_concentration'
-weewx.units.obs_group_dict['pm2_5_nowcast_aqi'] = 'air_quality_index'
-weewx.units.obs_group_dict['pm2_5_nowcast_aqi_color'] = 'air_quality_color'
-weewx.units.obs_group_dict['pm10_0_nowcast'] = 'group_concentration'
+weewx.units.obs_group_dict["pm1_0_1m"] = "group_concentration"
+weewx.units.obs_group_dict["pm10_0_1m"] = "group_concentration"
+weewx.units.obs_group_dict["pm2_5_aqi"] = "air_quality_index"
+weewx.units.obs_group_dict["pm2_5_aqi_color"] = "air_quality_color"
+weewx.units.obs_group_dict["pm2_5_1m"] = "group_concentration"
+weewx.units.obs_group_dict["pm2_5_1m_aqi"] = "air_quality_index"
+weewx.units.obs_group_dict["pm2_5_1m_aqi_color"] = "air_quality_color"
+weewx.units.obs_group_dict["pm2_5_nowcast"] = "group_concentration"
+weewx.units.obs_group_dict["pm2_5_nowcast_aqi"] = "air_quality_index"
+weewx.units.obs_group_dict["pm2_5_nowcast_aqi_color"] = "air_quality_color"
+weewx.units.obs_group_dict["pm10_0_nowcast"] = "group_concentration"
 
 # The observations this extension can fill into an archive record.  The
 # 1m and nowcast variants are loop-only -- they are not database columns --
 # so there is nothing to fill them into.
-PM_OBS: List[str] = ['pm1_0', 'pm2_5', 'pm10_0']
+PM_OBS: List[str] = ["pm1_0", "pm2_5", "pm10_0"]
 
 # The span an airlink-proxy's /fetch-two-minute-record describes.
 TWO_MINUTE_AVERAGE_SECS: int = 120
@@ -134,50 +138,53 @@ TWO_MINUTE_AVERAGE_SECS: int = 120
 # weewxd, since the refusal is remembered for the life of the process.
 REQUIRED_PROXY_API_VERSION: int = 2
 
+
 class Source:
     def __init__(self, config_dict, name, is_proxy):
         self.is_proxy = is_proxy
         # Raise KeyEror if name not in dictionary.
         source_dict = config_dict[name]
-        self.enable = to_bool(source_dict.get('enable', False))
-        self.hostname = source_dict.get('hostname', '')
+        self.enable = to_bool(source_dict.get("enable", False))
+        self.hostname = source_dict.get("hostname", "")
         if is_proxy:
-            self.port = to_int(source_dict.get('port', 8040))
+            self.port = to_int(source_dict.get("port", 8040))
             # An airlink-proxy answers out of its own database on the local
             # network.  One that has not answered in a second is down.
-            self.timeout  = to_int(source_dict.get('timeout', 1))
+            self.timeout = to_int(source_dict.get("timeout", 1))
         else:
-            self.port = to_int(source_dict.get('port', 80))
+            self.port = to_int(source_dict.get("port", 80))
             # Longer than a proxy's, since the AirLink's own processor is
             # slower than a proxy answering out of a database.  Two seconds
             # is what install.py has written into every fresh weewx.conf
             # since 2020, so it is what installs have actually been running;
             # the fallback moved here to match when install.py stopped
             # writing the option live.
-            self.timeout  = to_int(source_dict.get('timeout', 2))
+            self.timeout = to_int(source_dict.get("timeout", 2))
+
 
 @dataclass
 class Concentrations:
-    timestamp     : float
-    pm_1_last     : float
-    pm_2p5_last   : float
-    pm_10_last    : float
-    pm_1          : float
-    pm_2p5        : float
-    pm_10         : float
+    timestamp: float
+    pm_1_last: float
+    pm_2p5_last: float
+    pm_10_last: float
+    pm_1: float
+    pm_2p5: float
+    pm_10: float
     pm_2p5_nowcast: float
-    pm_10_nowcast : float
-    hum           : float
-    temp          : float
+    pm_10_nowcast: float
+    hum: float
+    temp: float
+
 
 @dataclass
 class Configuration:
-    lock            : threading.Lock
-    concentrations  : Optional[Concentrations] # Controlled by lock
-    stale_since     : Optional[float]          # Controlled by lock; None while fresh
-    archive_interval: int                      # Immutable
-    poll_interval   : int                      # Immutable
-    sources         : List[Source]             # Immutable
+    lock: threading.Lock
+    concentrations: Optional[Concentrations]  # Controlled by lock
+    stale_since: Optional[float]  # Controlled by lock; None while fresh
+    archive_interval: int  # Immutable
+    poll_interval: int  # Immutable
+    sources: List[Source]  # Immutable
     # Archive periods this extension put pm data into, per observation.  An
     # archive record carries no proof of its own: under hardware record
     # generation the accumulator's values are grafted on AFTER this service's
@@ -185,21 +192,23 @@ class Configuration:
     # accumulator is empty.  What this extension injected does say so, and
     # only this extension knows it.  It lives here rather than on the service
     # because fill_in_packet, which records it, is a static method.
-    injections      : Dict[str, List[float]] = field(  # Controlled by lock
-        default_factory = lambda: {obs: [] for obs in PM_OBS})
+    injections: Dict[str, List[float]] = field(  # Controlled by lock
+        default_factory=lambda: {obs: [] for obs in PM_OBS}
+    )
     # How far back the injection tally is kept.  new_archive_record measures
     # a period with the interval WeeWX really archives on, which is NOT
     # archive_interval above when the console disagrees with weewx.conf, so
     # the tally has to reach at least as far back or a period WeeWX watched
     # can look unwatched.  The service sets it; None means fall back to
     # archive_interval, which is what the __main__ harness gets.
-    injection_retention_secs: Optional[int] = None      # Immutable
+    injection_retention_secs: Optional[int] = None  # Immutable
+
 
 def outage_length(since: float, now: float) -> str:
     """How long readings were stale, as the line saying they are fresh
     again gives it: whole minutes, which a log reader can take as
     `after (\\d+) min` to tell a blip from an outage."""
-    return '%d min' % round((now - since) / 60)
+    return "%d min" % round((now - since) / 60)
 
 
 def reraise_if_terminate(e: BaseException) -> None:
@@ -215,20 +224,24 @@ def reraise_if_terminate(e: BaseException) -> None:
     a library's class called Terminate is not the shutdown.  Where neither
     module defines one (weectl report run) nothing can raise it, and
     nothing is re-raised."""
-    for name in ('__main__', 'weewxd'):
-        cls = getattr(sys.modules.get(name), 'Terminate', None)
-        if isinstance(cls, type) and issubclass(cls, BaseException) and isinstance(e, cls):
+    for name in ("__main__", "weewxd"):
+        cls = getattr(sys.modules.get(name), "Terminate", None)
+        if (
+            isinstance(cls, type)
+            and issubclass(cls, BaseException)
+            and isinstance(e, cls)
+        ):
             raise e
+
 
 def get_concentrations(cfg: Configuration):
     for source in cfg.sources:
         if source.enable:
-            record = collect_data(source.hostname,
-                                  source.port,
-                                  source.timeout,
-                                  cfg.archive_interval)
+            record = collect_data(
+                source.hostname, source.port, source.timeout, cfg.archive_interval
+            )
             if record is not None:
-                log.debug('get_concentrations: source: %s' % record)
+                log.debug("get_concentrations: source: %s" % record)
                 # is_sane permits a null last_report_time, which is what
                 # dateTime is built from, so this can be None.  Nothing can
                 # be said about the age of a reading that will not say when
@@ -236,34 +249,39 @@ def get_concentrations(cfg: Configuration):
                 # arithmetic on None.  get_concentrations runs on the MAIN
                 # thread at startup, where an escaping exception stops weewxd
                 # from starting at all.
-                reading_ts = to_int(record['dateTime'])
+                reading_ts = to_int(record["dateTime"])
                 if reading_ts is None:
-                    log.info('Reading from %s:%d has no timestamp; ignoring it.'
-                             % (source.hostname, source.port))
+                    log.info(
+                        "Reading from %s:%d has no timestamp; ignoring it."
+                        % (source.hostname, source.port)
+                    )
                     continue
                 age_of_reading = time.time() - reading_ts
                 if age_of_reading > cfg.archive_interval:
-                    log.info('Reading from %s:%d is old: %d seconds.' % (
-                        source.hostname, source.port, age_of_reading))
+                    log.info(
+                        "Reading from %s:%d is old: %d seconds."
+                        % (source.hostname, source.port, age_of_reading)
+                    )
                     continue
-                log.debug('get_concentrations: record: %s' % record)
+                log.debug("get_concentrations: record: %s" % record)
                 concentrations = Concentrations(
-                    timestamp      = reading_ts,
-                    pm_1_last      = record['pm_1_last'],
-                    pm_2p5_last    = record['pm_2p5_last'],
-                    pm_10_last     = record['pm_10_last'],
-                    pm_1           = record['pm_1'],
-                    pm_2p5         = record['pm_2p5'],
-                    pm_10          = record['pm_10'],
-                    pm_2p5_nowcast = record['pm_2p5_nowcast'],
-                    pm_10_nowcast  = record['pm_10_nowcast'],
-                    hum            = record['hum'],
-                    temp           = record['temp'],
+                    timestamp=reading_ts,
+                    pm_1_last=record["pm_1_last"],
+                    pm_2p5_last=record["pm_2p5_last"],
+                    pm_10_last=record["pm_10_last"],
+                    pm_1=record["pm_1"],
+                    pm_2p5=record["pm_2p5"],
+                    pm_10=record["pm_10"],
+                    pm_2p5_nowcast=record["pm_2p5_nowcast"],
+                    pm_10_nowcast=record["pm_10_nowcast"],
+                    hum=record["hum"],
+                    temp=record["temp"],
                 )
-                log.debug('get_concentrations: concentrations: %s' % concentrations)
+                log.debug("get_concentrations: concentrations: %s" % concentrations)
                 return concentrations
-    log.error('Could not get concentrations from any source.')
+    log.error("Could not get concentrations from any source.")
     return None
+
 
 def is_type(j: Dict[str, Any], t, name: str, none_ok: bool = False) -> bool:
     """Is j[name] a `t`?  A JSON number without a fraction arrives as an
@@ -277,7 +295,7 @@ def is_type(j: Dict[str, Any], t, name: str, none_ok: bool = False) -> bool:
         if x is None and none_ok:
             return True
         if isinstance(x, bool) and t is not bool:
-            log.debug('%s is a bool, not an instance of %s: %s' % (name, t, j[name]))
+            log.debug("%s is a bool, not an instance of %s: %s" % (name, t, j[name]))
             return False
         if t is float and isinstance(x, int):
             # JSON integers have no size limit; one too large for a float
@@ -285,44 +303,54 @@ def is_type(j: Dict[str, Any], t, name: str, none_ok: bool = False) -> bool:
             try:
                 float(x)
             except OverflowError:
-                log.debug('%s is too large for a float: %s' % (name, j[name]))
+                log.debug("%s is too large for a float: %s" % (name, j[name]))
                 return False
             return True
         if isinstance(x, float) and not math.isfinite(x):
-            log.debug('%s is not a finite number: %s' % (name, j[name]))
+            log.debug("%s is not a finite number: %s" % (name, j[name]))
             return False
         if not isinstance(x, t):
-            log.debug('%s is not an instance of %s: %s' % (name, t, j[name]))
+            log.debug("%s is not an instance of %s: %s" % (name, t, j[name]))
             return False
         return True
     except KeyError as e:
-        log.debug('is_type: could not find key: %s' % e)
+        log.debug("is_type: could not find key: %s" % e)
         return False
     except Exception as e:
         reraise_if_terminate(e)
-        log.debug('is_type: exception: %s' % e)
+        log.debug("is_type: exception: %s" % e)
         return False
+
 
 def convert_data_structure_type_5_to_6(j: Dict[str, Any]) -> None:
     # Fix up these names and change data_structure_type to 6
     try:
-        j['data']['conditions'][0]['pm_10'] = j['data']['conditions'][0]['pm_10p0']
-        j['data']['conditions'][0]['pm_10p0'] = None
-        j['data']['conditions'][0]['pm_10_last_1_hour'] = j['data']['conditions'][0]['pm_10p0_last_1_hour']
-        j['data']['conditions'][0]['pm_10p0_last_1_hour'] = None
-        j['data']['conditions'][0]['pm_10_last_3_hours'] = j['data']['conditions'][0]['pm_10p0_last_3_hours']
-        j['data']['conditions'][0]['pm_10p0_last_3_hours'] = None
-        j['data']['conditions'][0]['pm_10_last_24_hours'] = j['data']['conditions'][0]['pm_10p0_last_24_hours']
-        j['data']['conditions'][0]['pm_10p0_last_24_hours'] = None
-        j['data']['conditions'][0]['pm_10_nowcast'] = j['data']['conditions'][0]['pm_10p0_nowcast']
-        j['data']['conditions'][0]['pm_10p0_nowcast'] = None
+        j["data"]["conditions"][0]["pm_10"] = j["data"]["conditions"][0]["pm_10p0"]
+        j["data"]["conditions"][0]["pm_10p0"] = None
+        j["data"]["conditions"][0]["pm_10_last_1_hour"] = j["data"]["conditions"][0][
+            "pm_10p0_last_1_hour"
+        ]
+        j["data"]["conditions"][0]["pm_10p0_last_1_hour"] = None
+        j["data"]["conditions"][0]["pm_10_last_3_hours"] = j["data"]["conditions"][0][
+            "pm_10p0_last_3_hours"
+        ]
+        j["data"]["conditions"][0]["pm_10p0_last_3_hours"] = None
+        j["data"]["conditions"][0]["pm_10_last_24_hours"] = j["data"]["conditions"][0][
+            "pm_10p0_last_24_hours"
+        ]
+        j["data"]["conditions"][0]["pm_10p0_last_24_hours"] = None
+        j["data"]["conditions"][0]["pm_10_nowcast"] = j["data"]["conditions"][0][
+            "pm_10p0_nowcast"
+        ]
+        j["data"]["conditions"][0]["pm_10p0_nowcast"] = None
 
-        j['data']['conditions'][0]['data_structure_type'] = 6
-        log.debug('Converted type 5 record to type 6.')
+        j["data"]["conditions"][0]["data_structure_type"] = 6
+        log.debug("Converted type 5 record to type 6.")
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('convert_data_structure_type_5_to_6: exception: %s' % e)
+        log.info("convert_data_structure_type_5_to_6: exception: %s" % e)
         # Let sanity check handle the issue.
+
 
 # The largest PM concentration, in µg/m³, either way from zero, that a
 # reading may carry.  Far beyond anything a sensor reports, and small enough
@@ -331,91 +359,111 @@ def convert_data_structure_type_5_to_6(j: Dict[str, Any]) -> None:
 # and then overflows in the AQI calculation, on weewxd's main thread.
 PM_CEILING = 1_000_000.0
 
-def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
-    if j['error'] is not None:
-        return False, 'Error: %s' % j['error']
 
-    if not is_type(j, dict, 'data'):
+def is_sane(j: Dict[str, Any]) -> Tuple[bool, str]:
+    if j["error"] is not None:
+        return False, "Error: %s" % j["error"]
+
+    if not is_type(j, dict, "data"):
         return False, 'Missing or malformed "data" field'
 
-    if not is_type(j['data'], str, 'name'):
+    if not is_type(j["data"], str, "name"):
         return False, 'Missing or malformed "name" field'
 
-    if not is_type(j['data'], int, 'ts'):
+    if not is_type(j["data"], int, "ts"):
         return False, 'Missing or malformed "ts" field'
 
-    if not is_type(j['data'], list, 'conditions'):
+    if not is_type(j["data"], list, "conditions"):
         return False, 'Missing or malformed "conditions" field'
 
-    if len(j['data']['conditions']) == 0:
-        return False, 'Expected one element in conditions array.'
+    if len(j["data"]["conditions"]) == 0:
+        return False, "Expected one element in conditions array."
 
-    if not is_type(j['data']['conditions'][0], int, 'data_structure_type'):
+    if not is_type(j["data"]["conditions"][0], int, "data_structure_type"):
         return False, 'Missing or malformed "data_structure_type" field'
 
-    if j['data']['conditions'][0]['data_structure_type'] != 6:
-        return False, 'Expected data_structure_type of 6 (or type 5 auto converted to 6.'
+    if j["data"]["conditions"][0]["data_structure_type"] != 6:
+        return (
+            False,
+            "Expected data_structure_type of 6 (or type 5 auto converted to 6.",
+        )
 
     # The AirLink sends pm_*_last as whole numbers; an airlink-proxy archive
     # record averages them, and may serve the fraction.  Both are accepted:
     # they are checked as floats below, which takes an int too.
-    for name in ['last_report_time',
-            'pct_pm_data_last_1_hour', 'pct_pm_data_last_3_hours',
-            'pct_pm_data_nowcast', 'pct_pm_data_last_24_hours']:
-        if not is_type(j['data']['conditions'][0], int, name, True):
+    for name in [
+        "last_report_time",
+        "pct_pm_data_last_1_hour",
+        "pct_pm_data_last_3_hours",
+        "pct_pm_data_nowcast",
+        "pct_pm_data_last_24_hours",
+    ]:
+        if not is_type(j["data"]["conditions"][0], int, name, True):
             return False, 'Missing or malformed "%s" field' % name
 
-    if not is_type(j['data']['conditions'][0], int, 'lsid', True):
+    if not is_type(j["data"]["conditions"][0], int, "lsid", True):
         return False, 'Missing or malformed "lsid" field'
 
-    for name in ['temp', 'hum', 'dew_point', 'wet_bulb', 'heat_index']:
-        if not is_type(j['data']['conditions'][0], float, name):
+    for name in ["temp", "hum", "dew_point", "wet_bulb", "heat_index"]:
+        if not is_type(j["data"]["conditions"][0], float, name):
             return False, 'Missing or malformed "%s" field' % name
 
-    for name in ['pm_1_last', 'pm_2p5_last', 'pm_10_last',
-             'pm_1', 'pm_2p5', 'pm_2p5_last_1_hour',
-             'pm_2p5_last_3_hours', 'pm_2p5_last_24_hours', 'pm_2p5_nowcast',
-             'pm_10', 'pm_10_last_1_hour', 'pm_10_last_3_hours',
-             'pm_10_last_24_hours', 'pm_10_nowcast']:
-        if not is_type(j['data']['conditions'][0], float, name, True):
+    for name in [
+        "pm_1_last",
+        "pm_2p5_last",
+        "pm_10_last",
+        "pm_1",
+        "pm_2p5",
+        "pm_2p5_last_1_hour",
+        "pm_2p5_last_3_hours",
+        "pm_2p5_last_24_hours",
+        "pm_2p5_nowcast",
+        "pm_10",
+        "pm_10_last_1_hour",
+        "pm_10_last_3_hours",
+        "pm_10_last_24_hours",
+        "pm_10_nowcast",
+    ]:
+        if not is_type(j["data"]["conditions"][0], float, name, True):
             return False, 'Missing or malformed "%s" field' % name
-        value = j['data']['conditions'][0][name]
+        value = j["data"]["conditions"][0][name]
         if value is not None and abs(value) > PM_CEILING:
             return False, '"%s" is beyond any real concentration: %s' % (name, value)
 
-    return True, ''
+    return True, ""
+
 
 def collect_data(hostname, port, timeout, archive_interval):
 
     j = None
-    url = 'http://%s:%s/v1/current_conditions' % (hostname, port)
+    url = "http://%s:%s/v1/current_conditions" % (hostname, port)
 
     try:
         # fetch data
-        log.debug('collect_data: fetching from url: %s, timeout: %d' % (url, timeout))
+        log.debug("collect_data: fetching from url: %s, timeout: %d" % (url, timeout))
         r = requests.get(url=url, timeout=timeout)
         r.raise_for_status()
-        log.debug('collect_data: %s returned %r' % (hostname, r))
+        log.debug("collect_data: %s returned %r" % (hostname, r))
         if r:
             # convert to json
             j = r.json()
-            log.debug('collect_data: json returned from %s is: %r' % (hostname, j))
+            log.debug("collect_data: json returned from %s is: %r" % (hostname, j))
             # Check for error
-            if 'error' in j and j['error'] is not None:
-                error = j['error']
-                code = error['code']
-                message = error['message']
-                log.info('%s returned error(%d): %s' % (url, code, message))
+            if "error" in j and j["error"] is not None:
+                error = j["error"]
+                code = error["code"]
+                message = error["message"]
+                log.info("%s returned error(%d): %s" % (url, code, message))
                 return None
             # If data structure type 5, convert it to 6.
-            if j['data']['conditions'][0]['data_structure_type'] == 5:
+            if j["data"]["conditions"][0]["data_structure_type"] == 5:
                 convert_data_structure_type_5_to_6(j)
             # Check for sanity
             sane, msg = is_sane(j)
             if not sane:
-                log.warning('Reading not sane:  %s (%s)' % (msg, j))
+                log.warning("Reading not sane:  %s (%s)" % (msg, j))
                 return None
-            time_of_reading = j['data']['conditions'][0]['last_report_time']
+            time_of_reading = j["data"]["conditions"][0]["last_report_time"]
             # The reading could be old.
             # Check that it's not older than now - arcint
             age_of_reading = time.time() - time_of_reading
@@ -424,9 +472,11 @@ def collect_data(hostname, port, timeout, archive_interval):
                 # will be seconds from boot time (until the device syncs
                 # time.  Check for this by checking if concentrations.pm_1
                 # is None.
-                if j['data']['conditions'][0]['pm_1'] is None:
-                    log.info('last_report_time must be time since boot: %d seconds.  Record: %s'
-                             % (time_of_reading, j))
+                if j["data"]["conditions"][0]["pm_1"] is None:
+                    log.info(
+                        "last_report_time must be time since boot: %d seconds.  Record: %s"
+                        % (time_of_reading, j)
+                    )
                 else:
                     # Not current.  (Note: Rarely, spurious timestamps (e.g., 2016 in 2020)
                     # have been observed.  Both the ts and last_report_time fields are incorrect.
@@ -442,73 +492,80 @@ def collect_data(hostname, port, timeout, archive_interval):
                     # 'last_report_time': 1461926886, 'pct_pm_data_last_1_hour': 100,
                     # 'pct_pm_data_last_3_hours': 100, 'pct_pm_data_nowcast': 100,
                     # 'pct_pm_data_last_24_hours': 100}]}, 'error': None}
-                    log.info('Ignoring reading from %s--age: %d seconds.  Record: %s'
-                             % (hostname, age_of_reading, j))
+                    log.info(
+                        "Ignoring reading from %s--age: %d seconds.  Record: %s"
+                        % (hostname, age_of_reading, j)
+                    )
                 j = None
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('collect_data: Attempt to fetch from: %s failed: %s.' % (hostname, e))
+        log.info("collect_data: Attempt to fetch from: %s failed: %s." % (hostname, e))
         j = None
-
 
     if j is None:
         return None
 
     # create a record
-    log.debug('Successful read from %s.' % hostname)
+    log.debug("Successful read from %s." % hostname)
     return populate_record(time_of_reading, j)
+
 
 def populate_record(ts, j):
     record = dict()
-    record['dateTime'] = ts
-    record['usUnits'] = weewx.US
+    record["dateTime"] = ts
+    record["usUnits"] = weewx.US
 
     # put items into record
     missed = []
 
     def get_and_update_missed(key):
-        if key in j['data']['conditions'][0]:
-            return j['data']['conditions'][0][key]
+        if key in j["data"]["conditions"][0]:
+            return j["data"]["conditions"][0][key]
         else:
             missed.append(key)
             return None
 
-    record['last_report_time'] = get_and_update_missed('last_report_time')
-    record['temp'] = get_and_update_missed('temp')
-    record['hum'] = get_and_update_missed('hum')
-    record['dew_point'] = get_and_update_missed('dew_point')
-    record['wet_bulb'] = get_and_update_missed('wet_bulb')
-    record['heat_index'] = get_and_update_missed('heat_index')
-    record['pct_pm_data_last_1_hour'] = get_and_update_missed('pct_pm_data_last_1_hour')
-    record['pct_pm_data_last_3_hours'] = get_and_update_missed('pct_pm_data_last_3_hours')
-    record['pct_pm_data_nowcast'] = get_and_update_missed('pct_pm_data_nowcast')
-    record['pct_pm_data_last_24_hours'] = get_and_update_missed('pct_pm_data_last_24_hours')
+    record["last_report_time"] = get_and_update_missed("last_report_time")
+    record["temp"] = get_and_update_missed("temp")
+    record["hum"] = get_and_update_missed("hum")
+    record["dew_point"] = get_and_update_missed("dew_point")
+    record["wet_bulb"] = get_and_update_missed("wet_bulb")
+    record["heat_index"] = get_and_update_missed("heat_index")
+    record["pct_pm_data_last_1_hour"] = get_and_update_missed("pct_pm_data_last_1_hour")
+    record["pct_pm_data_last_3_hours"] = get_and_update_missed(
+        "pct_pm_data_last_3_hours"
+    )
+    record["pct_pm_data_nowcast"] = get_and_update_missed("pct_pm_data_nowcast")
+    record["pct_pm_data_last_24_hours"] = get_and_update_missed(
+        "pct_pm_data_last_24_hours"
+    )
 
-    record['pm1_0'] = get_and_update_missed('pm_1_last')
-    record['pm2_5'] = get_and_update_missed('pm_2p5_last')
-    record['pm10_0'] = get_and_update_missed('pm_10_last')
+    record["pm1_0"] = get_and_update_missed("pm_1_last")
+    record["pm2_5"] = get_and_update_missed("pm_2p5_last")
+    record["pm10_0"] = get_and_update_missed("pm_10_last")
 
     # Copy in all of the concentrations.
-    record['pm_1'] = get_and_update_missed('pm_1')
-    record['pm_1_last'] = get_and_update_missed('pm_1_last')
-    for prefix in ['pm_2p5', 'pm_10']:
-        key = prefix + '_last'
+    record["pm_1"] = get_and_update_missed("pm_1")
+    record["pm_1_last"] = get_and_update_missed("pm_1_last")
+    for prefix in ["pm_2p5", "pm_10"]:
+        key = prefix + "_last"
         record[key] = get_and_update_missed(key)
         key = prefix
         record[key] = get_and_update_missed(key)
-        key = prefix + '_last_1_hour'
+        key = prefix + "_last_1_hour"
         record[key] = get_and_update_missed(key)
-        key = prefix + '_last_3_hours'
+        key = prefix + "_last_3_hours"
         record[key] = get_and_update_missed(key)
-        key = prefix + '_last_24_hours'
+        key = prefix + "_last_24_hours"
         record[key] = get_and_update_missed(key)
-        key = prefix + '_nowcast'
+        key = prefix + "_nowcast"
         record[key] = get_and_update_missed(key)
 
     if missed:
-        log.info("Sensor didn't report field(s): %s" % ','.join(missed))
+        log.info("Sensor didn't report field(s): %s" % ",".join(missed))
 
     return record
+
 
 @dataclass
 class ProxyAnswer:
@@ -525,8 +582,10 @@ class ProxyAnswer:
     resolve -- means down.
 
     `value` is the usable result, or None if there wasn't one."""
+
     reachable: bool
-    value    : Optional[Any] = None
+    value: Optional[Any] = None
+
 
 def ask_proxy(source: Source, command: str) -> ProxyAnswer:
     """GET one airlink-proxy command.  A proxy's error is the AirLink's own
@@ -534,13 +593,15 @@ def ask_proxy(source: Source, command: str) -> ProxyAnswer:
     one collect_data makes of the device.  (Before API version 2 the error
     body was not valid json at all; r.json() rejects it, which lands in the
     same place.)"""
-    url = 'http://%s:%s%s' % (source.hostname, source.port, command)
+    url = "http://%s:%s%s" % (source.hostname, source.port, command)
     try:
-        log.debug('ask_proxy: fetching from url: %s, timeout: %d' % (url, source.timeout))
+        log.debug(
+            "ask_proxy: fetching from url: %s, timeout: %d" % (url, source.timeout)
+        )
         r = requests.get(url=url, timeout=source.timeout)
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('ask_proxy: Attempt to fetch from: %s failed: %s.' % (url, e))
+        log.info("ask_proxy: Attempt to fetch from: %s failed: %s." % (url, e))
         return ProxyAnswer(reachable=False)
     # Something answered.  Whatever it said, the proxy is up.
     try:
@@ -548,12 +609,13 @@ def ask_proxy(source: Source, command: str) -> ProxyAnswer:
         j = r.json()
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('ask_proxy: %s answered unusably: %s.' % (url, e))
+        log.info("ask_proxy: %s answered unusably: %s." % (url, e))
         return ProxyAnswer(reachable=True)
-    if isinstance(j, dict) and j.get('error') is not None:
-        log.info('%s returned error: %s' % (url, j['error']))
+    if isinstance(j, dict) and j.get("error") is not None:
+        log.info("%s returned error: %s" % (url, j["error"]))
         return ProxyAnswer(reachable=True)
     return ProxyAnswer(reachable=True, value=j)
+
 
 def record_from_proxy_reading(reading: Any) -> Optional[Dict[str, Any]]:
     """One airlink-proxy reading -> a record, or None if it is not sane.
@@ -563,26 +625,31 @@ def record_from_proxy_reading(reading: Any) -> Optional[Dict[str, Any]]:
     which an archive record from a period WeeWX was down for is supposed to
     fail.  The caller runs this inside its own try: a reading that is not
     shaped like a reading at all raises rather than returning."""
-    if reading.get('data') is None:
+    if reading.get("data") is None:
         return None
-    if reading['data']['conditions'][0]['data_structure_type'] == 5:
+    if reading["data"]["conditions"][0]["data_structure_type"] == 5:
         convert_data_structure_type_5_to_6(reading)
     sane, msg = is_sane(reading)
     if not sane:
-        log.warning('airlink-proxy record not sane, %s: %s' % (msg, reading))
+        log.warning("airlink-proxy record not sane, %s: %s" % (msg, reading))
         return None
-    return populate_record(reading['data']['conditions'][0]['last_report_time'], reading)
+    return populate_record(
+        reading["data"]["conditions"][0]["last_report_time"], reading
+    )
 
-def fetch_proxy_archive_records(source: Source, since_ts: int,
-                                max_ts: int) -> ProxyAnswer:
+
+def fetch_proxy_archive_records(
+    source: Source, since_ts: int, max_ts: int
+) -> ProxyAnswer:
     """The proxy's archive records covering (since_ts, max_ts] -- since_ts is
     exclusive and max_ts inclusive, which is the proxy's own convention.  The
     answer's value is the sane records, possibly an empty list, or None if
     the request produced nothing usable.
 
     Note the query arguments are separated by a comma, not an ampersand."""
-    answer = ask_proxy(source, '/fetch-archive-records?since_ts=%d,max_ts=%d' % (
-        since_ts, max_ts))
+    answer = ask_proxy(
+        source, "/fetch-archive-records?since_ts=%d,max_ts=%d" % (since_ts, max_ts)
+    )
     j = answer.value
     if j is None:
         return answer
@@ -592,8 +659,10 @@ def fetch_proxy_archive_records(source: Source, since_ts: int,
     # nothing like a list of readings.
     try:
         if not isinstance(j, list):
-            log.info('fetch_proxy_archive_records: %s returned %r, expected a list of records.'
-                     % (source.hostname, j))
+            log.info(
+                "fetch_proxy_archive_records: %s returned %r, expected a list of records."
+                % (source.hostname, j)
+            )
             return ProxyAnswer(reachable=True)
         records: List[Dict[str, Any]] = []
         for reading in j:
@@ -604,52 +673,63 @@ def fetch_proxy_archive_records(source: Source, since_ts: int,
                 record = record_from_proxy_reading(reading)
             except Exception as e:
                 reraise_if_terminate(e)
-                log.warning('airlink-proxy record from %s could not be read: %s: %s'
-                            % (source.hostname, e, reading))
+                log.warning(
+                    "airlink-proxy record from %s could not be read: %s: %s"
+                    % (source.hostname, e, reading)
+                )
                 continue
             if record is not None:
                 records.append(record)
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('fetch_proxy_archive_records: could not parse the answer from %s: %s.'
-                 % (source.hostname, e))
+        log.info(
+            "fetch_proxy_archive_records: could not parse the answer from %s: %s."
+            % (source.hostname, e)
+        )
         return ProxyAnswer(reachable=True)
     return ProxyAnswer(reachable=True, value=records)
+
 
 def fetch_proxy_two_minute_record(source: Source) -> ProxyAnswer:
     """The proxy's average over the last two minutes.  A proxy with no
     reading yet answers with an error envelope ('No two-minute average
     available.'), which ask_proxy has already turned into a value of None."""
-    answer = ask_proxy(source, '/fetch-two-minute-record')
+    answer = ask_proxy(source, "/fetch-two-minute-record")
     j = answer.value
     if j is None:
         return answer
     try:
         if not isinstance(j, dict):
-            log.info('fetch_proxy_two_minute_record: %s returned %r, expected a reading.'
-                     % (source.hostname, j))
+            log.info(
+                "fetch_proxy_two_minute_record: %s returned %r, expected a reading."
+                % (source.hostname, j)
+            )
             return ProxyAnswer(reachable=True)
         return ProxyAnswer(reachable=True, value=record_from_proxy_reading(j))
     except Exception as e:
         reraise_if_terminate(e)
-        log.info('fetch_proxy_two_minute_record: could not parse the answer from %s: %s.'
-                 % (source.hostname, e))
+        log.info(
+            "fetch_proxy_two_minute_record: could not parse the answer from %s: %s."
+            % (source.hostname, e)
+        )
         return ProxyAnswer(reachable=True)
+
 
 def average_pm_values(records: List[Dict[str, Any]]) -> Dict[str, float]:
     """Average the pm values of the proxy records covering one WeeWX archive
     period -- what the accumulator would have arrived at from loop packets,
     which carry these same fields.  A field is averaged over however many
     records actually reported it; a field no record reported is absent."""
-    sums  : Dict[str, float] = {}
-    counts: Dict[str, int]   = {}
+    sums: Dict[str, float] = {}
+    counts: Dict[str, int] = {}
     for record in records:
         for obs in PM_OBS:
             value = record.get(obs)
             if value is not None:
-                sums[obs]   = sums.get(obs, 0.0) + value
+                sums[obs] = sums.get(obs, 0.0) + value
                 counts[obs] = counts.get(obs, 0) + 1
     return {obs: sums[obs] / counts[obs] for obs in sums}
+
 
 def proxy_supports_catchup(source: Source, archive_interval: int) -> ProxyAnswer:
     """Whether this proxy may be used for catch-up.  The answer's value is
@@ -667,11 +747,11 @@ def proxy_supports_catchup(source: Source, archive_interval: int) -> ProxyAnswer
     entirely inside one of its records.  Rather than silently filling such a
     period badly, or leaving a hole that looks like the sensor's fault,
     catch-up is refused and says so."""
-    answer = ask_proxy(source, '/get-version')
+    answer = ask_proxy(source, "/get-version")
     j = answer.value
     if j is None:
         return ProxyAnswer(reachable=answer.reachable)
-    version = j.get('version') if isinstance(j, dict) else None
+    version = j.get("version") if isinstance(j, dict) else None
     version_number: Optional[int] = None
     if version is not None:
         try:
@@ -683,22 +763,27 @@ def proxy_supports_catchup(source: Source, archive_interval: int) -> ProxyAnswer
         except (TypeError, ValueError):
             version_number = None
     if version_number is None or version_number < REQUIRED_PROXY_API_VERSION:
-        log.info('airlink-proxy %s:%s speaks API version %r, but catch-up requires '
-                 'version %d or later.  No archive records will be filled in from it.'
-                 % (source.hostname, source.port, version, REQUIRED_PROXY_API_VERSION))
+        log.info(
+            "airlink-proxy %s:%s speaks API version %r, but catch-up requires "
+            "version %d or later.  No archive records will be filled in from it."
+            % (source.hostname, source.port, version, REQUIRED_PROXY_API_VERSION)
+        )
         return ProxyAnswer(reachable=True, value=False)
-    answer = ask_proxy(source, '/get-archive-interval-secs')
+    answer = ask_proxy(source, "/get-archive-interval-secs")
     j = answer.value
     if j is None:
         return ProxyAnswer(reachable=answer.reachable)
-    interval = to_int(j.get('archive-interval-secs')) if isinstance(j, dict) else None
+    interval = to_int(j.get("archive-interval-secs")) if isinstance(j, dict) else None
     if not interval or archive_interval % interval != 0:
-        log.info('airlink-proxy %s:%s archives every %r seconds, which does not divide '
-                 'into the %d seconds WeeWX archives on.  No archive records will be '
-                 'filled in from it.'
-                 % (source.hostname, source.port, interval, archive_interval))
+        log.info(
+            "airlink-proxy %s:%s archives every %r seconds, which does not divide "
+            "into the %d seconds WeeWX archives on.  No archive records will be "
+            "filled in from it."
+            % (source.hostname, source.port, interval, archive_interval)
+        )
         return ProxyAnswer(reachable=True, value=False)
     return ProxyAnswer(reachable=True, value=True)
+
 
 class AirLink(StdService):
     """Collect AirLink air quality measurements."""
@@ -708,15 +793,16 @@ class AirLink(StdService):
         log.info("Service version is %s." % WEEWX_AIRLINK_VERSION)
 
         self.engine = engine
-        self.config_dict = config_dict.get('AirLink', {})
+        self.config_dict = config_dict.get("AirLink", {})
 
         self.cfg = Configuration(
-            lock             = threading.Lock(),
-            concentrations   = None,
-            stale_since      = None,
-            archive_interval = int(config_dict['StdArchive']['archive_interval']),
-            poll_interval    = 5,
-            sources          = AirLink.configure_sources(self.config_dict))
+            lock=threading.Lock(),
+            concentrations=None,
+            stale_since=None,
+            archive_interval=int(config_dict["StdArchive"]["archive_interval"]),
+            poll_interval=5,
+            sources=AirLink.configure_sources(self.config_dict),
+        )
 
         # The interval WeeWX actually archives on, decided the way the engine
         # decides it (engine.py:544, 566-580): under SOFTWARE record
@@ -727,9 +813,9 @@ class AirLink(StdService):
         # is kept apart from cfg.archive_interval, which decides how long a
         # reading stays fresh and must keep answering exactly as it always
         # has.
-        archive_dict = config_dict.get('StdArchive', {})
-        configured_interval = to_int(archive_dict.get('archive_interval', 300))
-        if archive_dict.get('record_generation', 'hardware').lower() == 'hardware':
+        archive_dict = config_dict.get("StdArchive", {})
+        configured_interval = to_int(archive_dict.get("archive_interval", 300))
+        if archive_dict.get("record_generation", "hardware").lower() == "hardware":
             try:
                 self.archive_interval = to_int(engine.console.archive_interval)
             except (AttributeError, NotImplementedError):
@@ -760,11 +846,20 @@ class AirLink(StdService):
             if source.enable:
                 source_count += 1
                 log.info(
-                    'Source %d for AirLink readings: %s %s:%s, proxy: %s, timeout: %d' % (
-                    source_count, 'airlink-proxy' if source.is_proxy else 'sensor',
-                    source.hostname, source.port, source.is_proxy, source.timeout))
+                    "Source %d for AirLink readings: %s %s:%s, proxy: %s, timeout: %d"
+                    % (
+                        source_count,
+                        "airlink-proxy" if source.is_proxy else "sensor",
+                        source.hostname,
+                        source.port,
+                        source.is_proxy,
+                        source.timeout,
+                    )
+                )
         if source_count == 0:
-            log.error('No sources configured for airlink extension.  AirLink extension is inoperable.')
+            log.error(
+                "No sources configured for airlink extension.  AirLink extension is inoperable."
+            )
         else:
             # At the FRONT of the chain.  Appended, it sits behind WeeWX 5's
             # XTypeTable, which answers avg, min and max for any type it can
@@ -786,7 +881,9 @@ class AirLink(StdService):
 
             # Start a thread to query devices.
             dp: DevicePoller = DevicePoller(self.cfg)
-            t: threading.Thread = threading.Thread(target=dp.poll_device, name='AirLink', daemon=True)
+            t: threading.Thread = threading.Thread(
+                target=dp.poll_device, name="AirLink", daemon=True
+            )
             t.start()
 
             self.bind(weewx.NEW_LOOP_PACKET, self.new_loop_packet)
@@ -800,74 +897,97 @@ class AirLink(StdService):
                 self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
 
     def new_loop_packet(self, event):
-        log.debug('new_loop_packet(%s)' % event)
+        log.debug("new_loop_packet(%s)" % event)
         AirLink.fill_in_packet(self.cfg, event.packet)
 
     @staticmethod
     def fill_in_packet(cfg: Configuration, packet: Dict):
         with cfg.lock:
-            log.debug('new_loop_packet: cfg.concentrations: %s' % cfg.concentrations)
-            if cfg.concentrations is not None and \
-                    cfg.concentrations.timestamp is not None and \
-                    cfg.concentrations.timestamp + \
-                    cfg.archive_interval >= time.time():
+            log.debug("new_loop_packet: cfg.concentrations: %s" % cfg.concentrations)
+            if (
+                cfg.concentrations is not None
+                and cfg.concentrations.timestamp is not None
+                and cfg.concentrations.timestamp + cfg.archive_interval >= time.time()
+            ):
                 if cfg.stale_since is not None:
-                    log.info('Fresh concentrations available again after %s.'
-                             % outage_length(cfg.stale_since, time.time()))
+                    log.info(
+                        "Fresh concentrations available again after %s."
+                        % outage_length(cfg.stale_since, time.time())
+                    )
                     cfg.stale_since = None
-                log.debug('Time of reading being inserted: %s' % timestamp_to_string(cfg.concentrations.timestamp))
+                log.debug(
+                    "Time of reading being inserted: %s"
+                    % timestamp_to_string(cfg.concentrations.timestamp)
+                )
                 # Insert pm1_0, pm2_5, pm10_0, aqi and aqic into loop packet.
                 if cfg.concentrations.pm_1_last is not None:
-                    packet['pm1_0'] = cfg.concentrations.pm_1_last
-                    log.debug('Inserted packet[pm1_0]: %f into packet.' % cfg.concentrations.pm_1_last)
+                    packet["pm1_0"] = cfg.concentrations.pm_1_last
+                    log.debug(
+                        "Inserted packet[pm1_0]: %f into packet."
+                        % cfg.concentrations.pm_1_last
+                    )
                 if cfg.concentrations.pm_2p5_last is not None:
-                    packet['pm2_5'] = cfg.concentrations.pm_2p5_last
-                    log.debug('Inserted packet[pm2_5]: %f into packet.' % cfg.concentrations.pm_2p5_last)
+                    packet["pm2_5"] = cfg.concentrations.pm_2p5_last
+                    log.debug(
+                        "Inserted packet[pm2_5]: %f into packet."
+                        % cfg.concentrations.pm_2p5_last
+                    )
                     # Put aqi and color in the packet.
-                    packet['pm2_5_aqi'] = AQI.compute_pm2_5_aqi(packet['pm2_5'])
-                    packet['pm2_5_aqi_color'] = AQI.compute_pm2_5_aqi_color(packet['pm2_5_aqi'])
+                    packet["pm2_5_aqi"] = AQI.compute_pm2_5_aqi(packet["pm2_5"])
+                    packet["pm2_5_aqi_color"] = AQI.compute_pm2_5_aqi_color(
+                        packet["pm2_5_aqi"]
+                    )
                 if cfg.concentrations.pm_10_last is not None:
-                    packet['pm10_0'] = cfg.concentrations.pm_10_last
-                    log.debug('Inserted packet[pm10_0]: %f into packet.' % cfg.concentrations.pm_10_last)
+                    packet["pm10_0"] = cfg.concentrations.pm_10_last
+                    log.debug(
+                        "Inserted packet[pm10_0]: %f into packet."
+                        % cfg.concentrations.pm_10_last
+                    )
 
                 # Also insert one minute averages as these averages are more useful for showing in realtime.
                 # If 1m averages are not available, use last instead.
                 if cfg.concentrations.pm_1 is not None:
-                    packet['pm1_0_1m']       = cfg.concentrations.pm_1
+                    packet["pm1_0_1m"] = cfg.concentrations.pm_1
                 elif cfg.concentrations.pm_1_last is not None:
-                    packet['pm1_0_1m']       = cfg.concentrations.pm_1_last
+                    packet["pm1_0_1m"] = cfg.concentrations.pm_1_last
                 if cfg.concentrations.pm_2p5 is not None:
-                    packet['pm2_5_1m']       = cfg.concentrations.pm_2p5
+                    packet["pm2_5_1m"] = cfg.concentrations.pm_2p5
                 elif cfg.concentrations.pm_2p5_last is not None:
-                    packet['pm2_5_1m']       = cfg.concentrations.pm_2p5_last
+                    packet["pm2_5_1m"] = cfg.concentrations.pm_2p5_last
                 if cfg.concentrations.pm_10 is not None:
-                    packet['pm10_0_1m']      = cfg.concentrations.pm_10
+                    packet["pm10_0_1m"] = cfg.concentrations.pm_10
                 elif cfg.concentrations.pm_10_last is not None:
-                    packet['pm10_0_1m']      = cfg.concentrations.pm_10_last
+                    packet["pm10_0_1m"] = cfg.concentrations.pm_10_last
 
                 # Add 1m aqi and color
-                if 'pm2_5_1m' in packet:
-                    packet['pm2_5_1m_aqi'] = AQI.compute_pm2_5_aqi(packet['pm2_5_1m'])
-                    packet['pm2_5_1m_aqi_color'] = AQI.compute_pm2_5_aqi_color(packet['pm2_5_1m_aqi'])
+                if "pm2_5_1m" in packet:
+                    packet["pm2_5_1m_aqi"] = AQI.compute_pm2_5_aqi(packet["pm2_5_1m"])
+                    packet["pm2_5_1m_aqi_color"] = AQI.compute_pm2_5_aqi_color(
+                        packet["pm2_5_1m_aqi"]
+                    )
 
                 # And insert nowcast for pm 2.5 and 10 as some might want to report that.
                 # If nowcast not available, don't substitute.
                 if cfg.concentrations.pm_2p5_nowcast is not None:
-                    packet['pm2_5_nowcast']  = cfg.concentrations.pm_2p5_nowcast
-                    packet['pm2_5_nowcast_aqi'] = AQI.compute_pm2_5_aqi(packet['pm2_5_nowcast'])
-                    packet['pm2_5_nowcast_aqi_color'] = AQI.compute_pm2_5_aqi_color(packet['pm2_5_nowcast_aqi'])
+                    packet["pm2_5_nowcast"] = cfg.concentrations.pm_2p5_nowcast
+                    packet["pm2_5_nowcast_aqi"] = AQI.compute_pm2_5_aqi(
+                        packet["pm2_5_nowcast"]
+                    )
+                    packet["pm2_5_nowcast_aqi_color"] = AQI.compute_pm2_5_aqi_color(
+                        packet["pm2_5_nowcast_aqi"]
+                    )
                 if cfg.concentrations.pm_10_nowcast is not None:
-                    packet['pm10_0_nowcast'] = cfg.concentrations.pm_10_nowcast
+                    packet["pm10_0_nowcast"] = cfg.concentrations.pm_10_nowcast
 
                 AirLink.record_injections(cfg, packet)
             else:
                 # Log at error level once per outage, not once per loop
                 # packet; the line when it ends says how long it lasted.
                 if cfg.stale_since is None:
-                    log.error('Found no fresh concentrations to insert.')
+                    log.error("Found no fresh concentrations to insert.")
                     cfg.stale_since = time.time()
                 else:
-                    log.debug('Found no fresh concentrations to insert.')
+                    log.debug("Found no fresh concentrations to insert.")
 
     @staticmethod
     def record_injections(cfg: Configuration, packet: Dict[str, Any]) -> None:
@@ -879,7 +999,7 @@ class AirLink(StdService):
         # present and null still yields None, and the subtraction below would
         # then raise on the main thread, inside fill_in_packet, which
         # new_loop_packet calls with no guard around it.
-        ts = to_float(packet.get('dateTime'))
+        ts = to_float(packet.get("dateTime"))
         if ts is None:
             ts = time.time()
         # Two archive intervals is plenty to answer for the period that just
@@ -917,9 +1037,9 @@ class AirLink(StdService):
         # try: a record whose dateTime is null would raise where nothing
         # catches it.  A record that cannot say which period it covers cannot
         # be filled in.
-        end_ts = to_int(record.get('dateTime'))
+        end_ts = to_int(record.get("dateTime"))
         if end_ts is None:
-            log.info('Archive record has no timestamp; not filling it in.')
+            log.info("Archive record has no timestamp; not filling it in.")
             return
         # The record's own interval, not the configured archive interval: on
         # a long catchup a logger's records need not fall on archive
@@ -931,7 +1051,7 @@ class AirLink(StdService):
         # 1.5 and to_int would truncate it to a 60 second window.  round()
         # keeps the result an int and absorbs float error -- to_float(100/60)
         # * 60 is 99.999..., which should be 100.
-        interval_secs = round(to_float(record.get('interval') or 0) * 60)
+        interval_secs = round(to_float(record.get("interval") or 0) * 60)
         if interval_secs <= 0:
             interval_secs = self.archive_interval
         start_ts = end_ts - interval_secs
@@ -939,8 +1059,11 @@ class AirLink(StdService):
         # Test for None, not just for absence.  Under software record
         # generation the accumulator has already had its say by the time this
         # runs, and it writes None for a type it holds with no usable values.
-        needed = [obs for obs in PM_OBS if record.get(obs) is None
-                  and not self.injected_in(obs, start_ts, end_ts)]
+        needed = [
+            obs
+            for obs in PM_OBS
+            if record.get(obs) is None and not self.injected_in(obs, start_ts, end_ts)
+        ]
         if not needed:
             return
 
@@ -951,24 +1074,32 @@ class AirLink(StdService):
             values = self.backfill_values(start_ts, end_ts)
         except Exception as e:
             reraise_if_terminate(e)
-            log.error('Could not fill %s in archive record %s: %s' % (
-                ', '.join(needed), timestamp_to_string(end_ts), e))
+            log.error(
+                "Could not fill %s in archive record %s: %s"
+                % (", ".join(needed), timestamp_to_string(end_ts), e)
+            )
             return
         filled = [obs for obs in needed if obs in values]
         for obs in filled:
             record[obs] = values[obs]
         if filled:
             self.no_data_logged = False
-            log.info('Filled in %s in archive record %s.' % (
-                ', '.join(filled), timestamp_to_string(end_ts)))
+            log.info(
+                "Filled in %s in archive record %s."
+                % (", ".join(filled), timestamp_to_string(end_ts))
+            )
         elif not self.no_data_logged:
             # Log once, not once per record of a catchup burst.
             self.no_data_logged = True
-            log.info('No airlink-proxy data with which to fill %s in archive record %s.' % (
-                ', '.join(needed), timestamp_to_string(end_ts)))
+            log.info(
+                "No airlink-proxy data with which to fill %s in archive record %s."
+                % (", ".join(needed), timestamp_to_string(end_ts))
+            )
         else:
-            log.debug('No airlink-proxy data with which to fill %s in archive record %s.' % (
-                ', '.join(needed), timestamp_to_string(end_ts)))
+            log.debug(
+                "No airlink-proxy data with which to fill %s in archive record %s."
+                % (", ".join(needed), timestamp_to_string(end_ts))
+            )
 
     def usable_proxies(self) -> List[Source]:
         """The enabled proxies worth asking right now: reachable lately, and
@@ -980,7 +1111,7 @@ class AirLink(StdService):
         for source in self.cfg.sources:
             if not source.enable or not source.is_proxy:
                 continue
-            key = '%s:%s' % (source.hostname, source.port)
+            key = "%s:%s" % (source.hostname, source.port)
             if now < self.proxy_retry_after.get(key, 0.0):
                 continue
             if key not in self.proxy_catchup_ok:
@@ -999,23 +1130,23 @@ class AirLink(StdService):
 
     def backfill_values(self, start_ts: int, end_ts: int) -> Dict[str, float]:
         """The pm values for the period (start_ts, end_ts], from the first
-        proxy that holds archive records covering it.
+                proxy that holds archive records covering it.
 
-A proxy normally holds the period that just closed -- it writes the
-        record on its first poll at or past the boundary, ahead of WeeWX,
-        which archives at archive_delay.
+        A proxy normally holds the period that just closed -- it writes the
+                record on its first poll at or past the boundary, ahead of WeeWX,
+                which archives at archive_delay.
 
-        The two fallbacks below are governed by one rule: a reading may fill a
-        period only if it OVERLAPS that period.  The proxy's two minute
-        average describes the two minutes ending at its freshest sample, so it
-        qualifies when that window intersects the period.  The reading in hand
-        is a single instantaneous sample -- a point, not a span -- so it
-        qualifies only when it was taken inside the period.  Neither is
-        allowed to stand in for a period it says nothing about, which is what
-        an unchecked sample taken after the period closed would be doing.
+                The two fallbacks below are governed by one rule: a reading may fill a
+                period only if it OVERLAPS that period.  The proxy's two minute
+                average describes the two minutes ending at its freshest sample, so it
+                qualifies when that window intersects the period.  The reading in hand
+                is a single instantaneous sample -- a point, not a span -- so it
+                qualifies only when it was taken inside the period.  Neither is
+                allowed to stand in for a period it says nothing about, which is what
+                an unchecked sample taken after the period closed would be doing.
 
-        Any period nothing overlaps keeps its empty pm columns.  That is the
-        right answer, not a defeat."""
+                Any period nothing overlaps keeps its empty pm columns.  That is the
+                right answer, not a defeat."""
         now = time.time()
         # The proxies that answered.  One that did not is not asked a second
         # time for its two minute average: it has already cost a timeout on
@@ -1030,8 +1161,9 @@ A proxy normally holds the period that just closed -- it writes the
                 # uselessly, is asked again for the next record -- a locked
                 # database is momentary, and suppressing on it would abandon
                 # the rest of the outage.
-                self.proxy_retry_after['%s:%s' % (source.hostname, source.port)] = \
+                self.proxy_retry_after["%s:%s" % (source.hostname, source.port)] = (
                     now + self.archive_interval
+                )
                 continue
             reachable.append(source)
             if answer.value:
@@ -1046,8 +1178,9 @@ A proxy normally holds the period that just closed -- it writes the
         # ONLY this loop.  The reading in hand below answers to a different
         # rule (taken inside the period), and a period that closed an hour
         # ago can still hold a sample that qualifies.
-        two_minute_reachable = \
+        two_minute_reachable = (
             reachable if time.time() - end_ts < TWO_MINUTE_AVERAGE_SECS else []
+        )
         for source in two_minute_reachable:
             record = fetch_proxy_two_minute_record(source).value
             if record is None:
@@ -1057,10 +1190,12 @@ A proxy normally holds the period that just closed -- it writes the
             # goes on serving its last two minute average after the AirLink
             # dies -- the row is replaced, never cleared -- and such a record
             # is dated before the period, so it cannot overlap it.
-            reading_ts = record.get('dateTime')
-            if reading_ts is None or \
-                    reading_ts <= start_ts or \
-                    reading_ts - TWO_MINUTE_AVERAGE_SECS >= end_ts:
+            reading_ts = record.get("dateTime")
+            if (
+                reading_ts is None
+                or reading_ts <= start_ts
+                or reading_ts - TWO_MINUTE_AVERAGE_SECS >= end_ts
+            ):
                 continue
             values = average_pm_values([record])
             if values:
@@ -1071,12 +1206,20 @@ A proxy normally holds the period that just closed -- it writes the
             # being taken inside it.  A sample from after the period closed
             # describes a moment the period does not contain, however recent
             # it is.
-            if concentrations is not None and concentrations.timestamp is not None \
-                    and start_ts < concentrations.timestamp <= end_ts:
-                return average_pm_values([{
-                    'pm1_0' : concentrations.pm_1_last,
-                    'pm2_5' : concentrations.pm_2p5_last,
-                    'pm10_0': concentrations.pm_10_last}])
+            if (
+                concentrations is not None
+                and concentrations.timestamp is not None
+                and start_ts < concentrations.timestamp <= end_ts
+            ):
+                return average_pm_values(
+                    [
+                        {
+                            "pm1_0": concentrations.pm_1_last,
+                            "pm2_5": concentrations.pm_2p5_last,
+                            "pm10_0": concentrations.pm_10_last,
+                        }
+                    ]
+                )
         return {}
 
     def configure_sources(config_dict):
@@ -1086,7 +1229,7 @@ A proxy normally holds the period that just closed -- it writes the
         while True:
             idx += 1
             try:
-                source = Source(config_dict, 'Proxy%d' % idx, True)
+                source = Source(config_dict, "Proxy%d" % idx, True)
                 sources.append(source)
             except KeyError:
                 break
@@ -1095,33 +1238,35 @@ A proxy normally holds the period that just closed -- it writes the
         while True:
             idx += 1
             try:
-                source = Source(config_dict, 'Sensor%d' % idx, False)
+                source = Source(config_dict, "Sensor%d" % idx, False)
                 sources.append(source)
             except KeyError:
                 break
 
         return sources
 
+
 class DevicePoller:
     def __init__(self, cfg: Configuration):
         self.cfg = cfg
 
     def poll_device(self) -> None:
-        log.debug('poll_device: start')
+        log.debug("poll_device: start")
         while True:
             try:
-                log.debug('poll_device: calling get_concentrations.')
+                log.debug("poll_device: calling get_concentrations.")
                 concentrations = get_concentrations(self.cfg)
             except Exception as e:
-                log.error('poll_device exception: %s' % e)
+                log.error("poll_device exception: %s" % e)
                 weeutil.logger.log_traceback(log.critical, "    ****  ")
                 concentrations = None
-            log.debug('poll_device: concentrations: %s' % concentrations)
+            log.debug("poll_device: concentrations: %s" % concentrations)
             if concentrations is not None:
                 with self.cfg.lock:
                     self.cfg.concentrations = concentrations
-            log.debug('poll_device: Sleeping for %d seconds.' % self.cfg.poll_interval)
+            log.debug("poll_device: Sleeping for %d seconds." % self.cfg.poll_interval)
             time.sleep(self.cfg.poll_interval)
+
 
 def past_spans(day, report_time, count, seconds):
     """The last `count` spans of exactly `seconds` each, oldest first, the
@@ -1161,10 +1306,19 @@ def past_spans(day, report_time, count, seconds):
             continue
         if start >= last_ts:
             break
-        spans.append(weewx.tags.TimespanBinder(
-            weeutil.weeutil.TimeSpan(start, stop), day.db_lookup, day.data_binding,
-            'day', day.formatter, day.converter, **day.option_dict))
+        spans.append(
+            weewx.tags.TimespanBinder(
+                weeutil.weeutil.TimeSpan(start, stop),
+                day.db_lookup,
+                day.data_binding,
+                "day",
+                day.formatter,
+                day.converter,
+                **day.option_dict,
+            )
+        )
     return spans
+
 
 class AQI(weewx.xtypes.XType):
     """
@@ -1176,36 +1330,38 @@ class AQI(weewx.xtypes.XType):
         pass
 
     agg_sql_dict = {
-        'avg': "SELECT AVG(pm2_5), MIN(usUnits) FROM %(table_name)s "
-               "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL",
-        'count': "SELECT COUNT(dateTime), MIN(usUnits) FROM %(table_name)s "
-                 "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL",
-        'first': "SELECT pm2_5, usUnits FROM %(table_name)s "
-                 "WHERE dateTime = (SELECT MIN(dateTime) FROM %(table_name)s "
-                 "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL)",
-        'last': "SELECT pm2_5, usUnits FROM %(table_name)s "
-                "WHERE dateTime = (SELECT MAX(dateTime) FROM %(table_name)s "
-                "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL)",
-        'min': "SELECT pm2_5, usUnits FROM %(table_name)s "
-               "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL "
-               "ORDER BY pm2_5 ASC LIMIT 1;",
-        'max': "SELECT pm2_5, usUnits FROM %(table_name)s "
-               "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL "
-               "ORDER BY pm2_5 DESC LIMIT 1;",
+        "avg": "SELECT AVG(pm2_5), MIN(usUnits) FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL",
+        "count": "SELECT COUNT(dateTime), MIN(usUnits) FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL",
+        "first": "SELECT pm2_5, usUnits FROM %(table_name)s "
+        "WHERE dateTime = (SELECT MIN(dateTime) FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL)",
+        "last": "SELECT pm2_5, usUnits FROM %(table_name)s "
+        "WHERE dateTime = (SELECT MAX(dateTime) FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL)",
+        "min": "SELECT pm2_5, usUnits FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL "
+        "ORDER BY pm2_5 ASC LIMIT 1;",
+        "max": "SELECT pm2_5, usUnits FROM %(table_name)s "
+        "WHERE dateTime > %(start)s AND dateTime <= %(stop)s AND pm2_5 IS NOT NULL "
+        "ORDER BY pm2_5 DESC LIMIT 1;",
     }
 
     day_boundary_avg_min_max_sql_dict = {
-        'usUnits': "SELECT usUnits from %(table_name)s ORDER BY dateTime DESC LIMIT 1;",
-        'avg'    : "SELECT sum(wsum) / sum(sumtime) FROM %(table_name)s%(pm2_5_summary_suffix)s "
-                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s ",
+        "usUnits": "SELECT usUnits from %(table_name)s ORDER BY dateTime DESC LIMIT 1;",
+        "avg": "SELECT sum(wsum) / sum(sumtime) FROM %(table_name)s%(pm2_5_summary_suffix)s "
+        "WHERE dateTime >= %(start)s AND dateTime < %(stop)s ",
         # MIN() and MAX(), not ORDER BY ... LIMIT 1: a day whose pm2_5 was
         # NULL throughout (an outage's catch-up records) has a NULL min and
         # max, and NULL sorts first, so the whole span's minimum came back
         # None.  The aggregates skip NULLs.
-        'min'    : "SELECT MIN(min) FROM %(table_name)s%(pm2_5_summary_suffix)s "
-                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s;",
-        'max'    : "SELECT MAX(max) FROM %(table_name)s%(pm2_5_summary_suffix)s "
-                   "WHERE dateTime >= %(start)s AND dateTime < %(stop)s;",
+        "min": "SELECT MIN(min) FROM %(table_name)s%(pm2_5_summary_suffix)s "
+        "WHERE dateTime >= %(start)s AND dateTime < %(stop)s AND min IS NOT NULL "
+        "ORDER BY min ASC LIMIT 1;",
+        "max": "SELECT MAX(max) FROM %(table_name)s%(pm2_5_summary_suffix)s "
+        "WHERE dateTime >= %(start)s AND dateTime < %(stop)s AND max IS NOT NULL "
+        "ORDER BY max DESC LIMIT 1;",
     }
 
     # Maps each supported AQI observation type to the observation it is
@@ -1213,12 +1369,12 @@ class AQI(weewx.xtypes.XType):
     # observations exist only in loop packets, so their AQI types resolve
     # only against a record that carries them.
     aqi_source_field = {
-        'pm2_5_aqi'              : 'pm2_5',
-        'pm2_5_aqi_color'        : 'pm2_5',
-        'pm2_5_1m_aqi'           : 'pm2_5_1m',
-        'pm2_5_1m_aqi_color'     : 'pm2_5_1m',
-        'pm2_5_nowcast_aqi'      : 'pm2_5_nowcast',
-        'pm2_5_nowcast_aqi_color': 'pm2_5_nowcast',
+        "pm2_5_aqi": "pm2_5",
+        "pm2_5_aqi_color": "pm2_5",
+        "pm2_5_1m_aqi": "pm2_5_1m",
+        "pm2_5_1m_aqi_color": "pm2_5_1m",
+        "pm2_5_nowcast_aqi": "pm2_5_nowcast",
+        "pm2_5_nowcast_aqi_color": "pm2_5_nowcast",
     }
 
     @staticmethod
@@ -1233,7 +1389,8 @@ class AQI(weewx.xtypes.XType):
         defaults use for windSpeed.  A user's [Accumulator] section takes
         precedence over these entries."""
         weewx.accum.accum_dict.extend(
-            {obs_type: {'extractor': 'noop'} for obs_type in AQI.aqi_source_field})
+            {obs_type: {"extractor": "noop"} for obs_type in AQI.aqi_source_field}
+        )
 
     @staticmethod
     def compute_pm2_5_aqi(pm2_5):
@@ -1255,17 +1412,17 @@ class AQI(weewx.xtypes.XType):
         # See https://www3.epa.gov/airnow/aqi-technical-assistance-document-sept2018.pdf
         x = math.trunc(pm2_5 * 10) / 10
 
-        if x <= 9.0: # Good
+        if x <= 9.0:  # Good
             aqi = round(x / 9.0 * 50)
-        elif x <= 35.4: # Moderate
+        elif x <= 35.4:  # Moderate
             aqi = round((x - 9.1) / 26.3 * 49.0 + 51.0)
-        elif x <= 55.4: # Unhealthy for sensitive groups
+        elif x <= 55.4:  # Unhealthy for sensitive groups
             aqi = round((x - 35.5) / 19.9 * 49.0 + 101.0)
-        elif x <= 125.4: # Unhealthy
+        elif x <= 125.4:  # Unhealthy
             aqi = round((x - 55.5) / 69.9 * 49.0 + 151.0)
-        elif x <= 225.4: # Very Unhealthy
+        elif x <= 225.4:  # Very Unhealthy
             aqi = round((x - 125.5) / 99.9 * 99.0 + 201.0)
-        else: # Hazardous
+        else:  # Hazardous
             aqi = round((x - 225.5) / 99.9 * 199.0 + 301.0)
 
         # A negative pm2_5 (only possible if a bogus value reached the
@@ -1275,17 +1432,17 @@ class AQI(weewx.xtypes.XType):
     @staticmethod
     def compute_pm2_5_aqi_color(pm2_5_aqi):
         if pm2_5_aqi <= 50:
-            return 228 << 8                      # Green
+            return 228 << 8  # Green
         elif pm2_5_aqi <= 100:
-            return (255 << 16) + (255 << 8)      # Yellow
-        elif pm2_5_aqi <=  150:
-            return (255 << 16) + (126 << 8)      # Orange
+            return (255 << 16) + (255 << 8)  # Yellow
+        elif pm2_5_aqi <= 150:
+            return (255 << 16) + (126 << 8)  # Orange
         elif pm2_5_aqi <= 200:
-            return 255 << 16                     # Red
+            return 255 << 16  # Red
         elif pm2_5_aqi <= 300:
-            return (143 << 16) + (63 << 8) + 151 # Purple
+            return (143 << 16) + (63 << 8) + 151  # Purple
         else:
-            return (126 << 16) + 35              # Maroon
+            return (126 << 16) + 35  # Maroon
 
     @staticmethod
     def get_scalar(obs_type, record, db_manager=None, **option_dict):
@@ -1293,30 +1450,35 @@ class AQI(weewx.xtypes.XType):
         # scalar lookup on the station passes through here.
         if obs_type not in AQI.aqi_source_field:
             raise weewx.UnknownType(obs_type)
-        log.debug('get_scalar(%s)' % obs_type)
+        log.debug("get_scalar(%s)" % obs_type)
         if record is None:
-            log.debug('get_scalar called where record is None.')
+            log.debug("get_scalar called where record is None.")
             raise weewx.CannotCalculate(obs_type)
         source_field = AQI.aqi_source_field[obs_type]
         if source_field not in record:
             # Returning CannotCalculate causes exception in ImageGenerator, return UnknownType instead.
             # ERROR weewx.reportengine: Caught unrecoverable exception in generator 'weewx.imagegenerator.ImageGenerator'
-            log.debug('get_scalar called where record does not contain %s.' % source_field)
+            log.debug(
+                "get_scalar called where record does not contain %s." % source_field
+            )
             raise weewx.UnknownType(obs_type)
         if record[source_field] is None:
-            # Returning CannotCalculate causes exception in ImageGenerator, return UnknownType instead.
-            # ERROR weewx.reportengine: Caught unrecoverable exception in generator 'weewx.imagegenerator.ImageGenerator'
-            # Any archive catchup records will have None for pm2_5.
-            log.debug('get_scalar called where record[%s] is None.  Probably a catchup record.' %
-                source_field)
-            raise weewx.UnknownType(obs_type)
+            # Any archive catchup records will have None for pm2_5. Return a
+            # None value, not an exception: XTypeTable scans records through
+            # here, and raising for one record failed the whole aggregate.
+            log.debug(
+                "get_scalar called where record[%s] is None.  Probably a catchup record."
+                % source_field
+            )
+            t, g = weewx.units.getStandardUnitType(record["usUnits"], obs_type)
+            return weewx.units.ValueTuple(None, t, g)
         try:
             pm2_5 = record[source_field]
-            if obs_type.endswith('_color'):
+            if obs_type.endswith("_color"):
                 value = AQI.compute_pm2_5_aqi_color(AQI.compute_pm2_5_aqi(pm2_5))
             else:
                 value = AQI.compute_pm2_5_aqi(pm2_5)
-            t, g = weewx.units.getStandardUnitType(record['usUnits'], obs_type)
+            t, g = weewx.units.getStandardUnitType(record["usUnits"], obs_type)
             # Form the ValueTuple and return it:
             return weewx.units.ValueTuple(value, t, g)
         except KeyError:
@@ -1324,17 +1486,29 @@ class AQI(weewx.xtypes.XType):
             raise weewx.CannotCalculate(obs_type)
 
     @staticmethod
-    def get_series(obs_type, timespan, db_manager, aggregate_type=None, aggregate_interval=None,
-                   **option_dict):
-        """Get a series, possibly with aggregation.
-        """
+    def get_series(
+        obs_type,
+        timespan,
+        db_manager,
+        aggregate_type=None,
+        aggregate_interval=None,
+        **option_dict,
+    ):
+        """Get a series, possibly with aggregation."""
 
-        if obs_type not in [ 'pm2_5_aqi', 'pm2_5_aqi_color' ]:
+        if obs_type not in ["pm2_5_aqi", "pm2_5_aqi_color"]:
             raise weewx.UnknownType(obs_type)
 
-        log.debug('get_series(%s, %s, %s, aggregate:%s, aggregate_interval:%s)' % (
-            obs_type, timestamp_to_string(timespan.start), timestamp_to_string(
-            timespan.stop), aggregate_type, aggregate_interval))
+        log.debug(
+            "get_series(%s, %s, %s, aggregate:%s, aggregate_interval:%s)"
+            % (
+                obs_type,
+                timestamp_to_string(timespan.start),
+                timestamp_to_string(timespan.stop),
+                aggregate_type,
+                aggregate_interval,
+            )
+        )
 
         #  Prepare the lists that will hold the final results.
         start_vec = list()
@@ -1344,13 +1518,21 @@ class AQI(weewx.xtypes.XType):
         # Is aggregation requested?
         if aggregate_type:
             # Yes. Just use the regular series function.
-            return weewx.xtypes.ArchiveTable.get_series(obs_type, timespan, db_manager, aggregate_type,
-                                           aggregate_interval, **option_dict)
+            return weewx.xtypes.ArchiveTable.get_series(
+                obs_type,
+                timespan,
+                db_manager,
+                aggregate_type,
+                aggregate_interval,
+                **option_dict,
+            )
         else:
             # No aggregation.
-            sql_str = 'SELECT dateTime, usUnits, `interval`, pm2_5 FROM %s ' \
-                      'WHERE dateTime >= ? AND dateTime <= ? AND pm2_5 IS NOT NULL' \
-                      % db_manager.table_name
+            sql_str = (
+                "SELECT dateTime, usUnits, `interval`, pm2_5 FROM %s "
+                "WHERE dateTime >= ? AND dateTime <= ? AND pm2_5 IS NOT NULL"
+                % db_manager.table_name
+            )
             std_unit_system = None
 
             for record in db_manager.genSql(sql_str, timespan):
@@ -1358,27 +1540,37 @@ class AQI(weewx.xtypes.XType):
                 if std_unit_system:
                     if std_unit_system != unit_system:
                         raise weewx.UnsupportedFeature(
-                            "Unit type cannot change within a time interval.")
+                            "Unit type cannot change within a time interval."
+                        )
                 else:
                     std_unit_system = unit_system
 
-                if obs_type == 'pm2_5_aqi':
+                if obs_type == "pm2_5_aqi":
                     value = AQI.compute_pm2_5_aqi(pm2_5)
-                else: # pm2_5_aqi_color
+                else:  # pm2_5_aqi_color
                     value = AQI.compute_pm2_5_aqi_color(AQI.compute_pm2_5_aqi(pm2_5))
-                log.debug('get_series(%s): %s - %s - %s' % (obs_type,
-                    timestamp_to_string(ts - interval * 60),
-                    timestamp_to_string(ts), value))
+                log.debug(
+                    "get_series(%s): %s - %s - %s"
+                    % (
+                        obs_type,
+                        timestamp_to_string(ts - interval * 60),
+                        timestamp_to_string(ts),
+                        value,
+                    )
+                )
                 start_vec.append(ts - interval * 60)
                 stop_vec.append(ts)
                 data_vec.append(value)
 
-            unit, unit_group = weewx.units.getStandardUnitType(std_unit_system, obs_type,
-                                                               aggregate_type)
+            unit, unit_group = weewx.units.getStandardUnitType(
+                std_unit_system, obs_type, aggregate_type
+            )
 
-        return (ValueTuple(start_vec, 'unix_epoch', 'group_time'),
-                ValueTuple(stop_vec, 'unix_epoch', 'group_time'),
-                ValueTuple(data_vec, unit, unit_group))
+        return (
+            ValueTuple(start_vec, "unix_epoch", "group_time"),
+            ValueTuple(stop_vec, "unix_epoch", "group_time"),
+            ValueTuple(data_vec, unit, unit_group),
+        )
 
     @staticmethod
     def get_aggregate(obs_type, timespan, aggregate_type, db_manager, **option_dict):
@@ -1402,12 +1594,18 @@ class AQI(weewx.xtypes.XType):
 
         returns: A ValueTuple containing the result.
         """
-        if obs_type not in [ 'pm2_5_aqi', 'pm2_5_aqi_color' ]:
+        if obs_type not in ["pm2_5_aqi", "pm2_5_aqi_color"]:
             raise weewx.UnknownType(obs_type)
 
-        log.debug('get_aggregate(%s, %s, %s, aggregate:%s)' % (
-            obs_type, timestamp_to_string(timespan.start),
-            timestamp_to_string(timespan.stop), aggregate_type))
+        log.debug(
+            "get_aggregate(%s, %s, %s, aggregate:%s)"
+            % (
+                obs_type,
+                timestamp_to_string(timespan.start),
+                timestamp_to_string(timespan.stop),
+                aggregate_type,
+            )
+        )
 
         aggregate_type = aggregate_type.lower()
 
@@ -1417,24 +1615,36 @@ class AQI(weewx.xtypes.XType):
 
         # Form the interpolation dictionary
         interpolation_dict = {
-            'start': timespan.start,
-            'stop': timespan.stop,
-            'table_name': db_manager.table_name,
-            'pm2_5_summary_suffix': '_day_pm2_5'
+            "start": timespan.start,
+            "stop": timespan.stop,
+            "table_name": db_manager.table_name,
+            "pm2_5_summary_suffix": "_day_pm2_5",
         }
 
         # The daily summary table can only be used if the timespan covers
         # whole archive days: both endpoints on local midnight.  A span
         # whose length merely happens to be a multiple of 24 hours (e.g.,
         # a trailing 24-hour window) must use the regular archive table.
-        on_day_boundary = (timespan.start != timespan.stop
-                           and weeutil.weeutil.isStartOfDay(timespan.start)
-                           and weeutil.weeutil.isStartOfDay(timespan.stop))
-        log.debug('day_boundary start: %r stop: %r on_day_boundary: %s' % (
-            timespan.start, timespan.stop, on_day_boundary))
-        if aggregate_type in list(AQI.day_boundary_avg_min_max_sql_dict.keys()) and on_day_boundary:
-            select_stmt = AQI.day_boundary_avg_min_max_sql_dict[aggregate_type] % interpolation_dict
-            select_usunits_stmt = AQI.day_boundary_avg_min_max_sql_dict['usUnits'] % interpolation_dict
+        on_day_boundary = (
+            timespan.start != timespan.stop
+            and weeutil.weeutil.isStartOfDay(timespan.start)
+            and weeutil.weeutil.isStartOfDay(timespan.stop)
+        )
+        log.debug(
+            "day_boundary start: %r stop: %r on_day_boundary: %s"
+            % (timespan.start, timespan.stop, on_day_boundary)
+        )
+        if (
+            aggregate_type in list(AQI.day_boundary_avg_min_max_sql_dict.keys())
+            and on_day_boundary
+        ):
+            select_stmt = (
+                AQI.day_boundary_avg_min_max_sql_dict[aggregate_type]
+                % interpolation_dict
+            )
+            select_usunits_stmt = (
+                AQI.day_boundary_avg_min_max_sql_dict["usUnits"] % interpolation_dict
+            )
             need_usUnits = True
         else:
             select_stmt = AQI.agg_sql_dict[aggregate_type] % interpolation_dict
@@ -1442,13 +1652,13 @@ class AQI(weewx.xtypes.XType):
         if need_usUnits:
             row = db_manager.getSql(select_usunits_stmt)
             if row:
-                std_unit_system, = row
+                (std_unit_system,) = row
             else:
                 std_unit_system = None
         row = db_manager.getSql(select_stmt)
         if row:
             if need_usUnits:
-                value, = row
+                (value,) = row
             else:
                 value, std_unit_system = row
         else:
@@ -1457,17 +1667,28 @@ class AQI(weewx.xtypes.XType):
 
         # A count is a count of records; every other aggregate is a pm2_5
         # concentration that must be converted to an AQI (or color).
-        if value is not None and aggregate_type != 'count':
-            if obs_type == 'pm2_5_aqi':
+        if value is not None and aggregate_type != "count":
+            if obs_type == "pm2_5_aqi":
                 value = AQI.compute_pm2_5_aqi(value)
-            else: # pm2_5_aqi_color
+            else:  # pm2_5_aqi_color
                 value = AQI.compute_pm2_5_aqi_color(AQI.compute_pm2_5_aqi(value))
-        t, g = weewx.units.getStandardUnitType(std_unit_system, obs_type, aggregate_type)
+        t, g = weewx.units.getStandardUnitType(
+            std_unit_system, obs_type, aggregate_type
+        )
         # Form the ValueTuple and return it:
-        log.debug('get_aggregate(%s, %s, %s, aggregate:%s, select_stmt: %s, returning %s)' % (
-            obs_type, timestamp_to_string(timespan.start), timestamp_to_string(timespan.stop),
-            aggregate_type, select_stmt, value))
+        log.debug(
+            "get_aggregate(%s, %s, %s, aggregate:%s, select_stmt: %s, returning %s)"
+            % (
+                obs_type,
+                timestamp_to_string(timespan.start),
+                timestamp_to_string(timespan.stop),
+                aggregate_type,
+                select_stmt,
+                value,
+            )
+        )
         return weewx.units.ValueTuple(value, t, g)
+
 
 if __name__ == "__main__":
     usage = """%prog [options] [--help] [--debug]"""
@@ -1476,59 +1697,108 @@ if __name__ == "__main__":
 
     def main():
         import optparse
-        parser = optparse.OptionParser(usage=usage)
-        parser.add_option('--config', dest='cfgfn', type=str, metavar="FILE",
-                          help="Use configuration file FILE. Default is /etc/weewx/weewx.conf or /home/weewx/weewx.conf")
-        parser.add_option('--test-extension', dest='te', action='store_true',
-                          help='test the data collector (requires a live AirLink sensor)')
-        parser.add_option('--test-is-sane', dest='sane_test', action='store_true',
-                          help='test the is_sane function (no sensor needed)')
-        parser.add_option('--test-catchup', dest='catchup', action='store_true',
-                          help='test the archive catch-up path (requires a running'
-                               ' airlink-proxy)')
-        parser.add_option('--hostname', dest='hostname', action='store',
-                          help='hostname to use with --test-extension or --test-catchup')
-        parser.add_option('--port', dest='port', action='store',
-                          type=int, default=None,
-                          help="port to use.  Default is '80' with --test-extension"
-                               " and '8040' with --test-catchup")
-        parser.add_option('--archive-interval', dest='archive_interval',
-                          action='store', type=int, default=300,
-                          help='the interval WeeWX archives on, in seconds, used by'
-                               " --test-catchup to check the proxy against.  Default"
-                               " is '300'")
-        (options, args) = parser.parse_args()
 
-        weeutil.logger.setup('airlink', {})
+        parser = optparse.OptionParser(usage=usage)
+        parser.add_option(
+            "--config",
+            dest="cfgfn",
+            type=str,
+            metavar="FILE",
+            help="Use configuration file FILE. Default is /etc/weewx/weewx.conf or /home/weewx/weewx.conf",
+        )
+        parser.add_option(
+            "--test-extension",
+            dest="te",
+            action="store_true",
+            help="test the data collector (requires a live AirLink sensor)",
+        )
+        parser.add_option(
+            "--test-is-sane",
+            dest="sane_test",
+            action="store_true",
+            help="test the is_sane function (no sensor needed)",
+        )
+        parser.add_option(
+            "--test-catchup",
+            dest="catchup",
+            action="store_true",
+            help="test the archive catch-up path (requires a running" " airlink-proxy)",
+        )
+        parser.add_option(
+            "--hostname",
+            dest="hostname",
+            action="store",
+            help="hostname to use with --test-extension or --test-catchup",
+        )
+        parser.add_option(
+            "--port",
+            dest="port",
+            action="store",
+            type=int,
+            default=None,
+            help="port to use.  Default is '80' with --test-extension"
+            " and '8040' with --test-catchup",
+        )
+        parser.add_option(
+            "--archive-interval",
+            dest="archive_interval",
+            action="store",
+            type=int,
+            default=300,
+            help="the interval WeeWX archives on, in seconds, used by"
+            " --test-catchup to check the proxy against.  Default"
+            " is '300'",
+        )
+        options, args = parser.parse_args()
+
+        weeutil.logger.setup("airlink", {})
 
         if options.te:
             if not options.hostname:
-                parser.error('--test-extension requires --hostname argument')
+                parser.error("--test-extension requires --hostname argument")
             test_extension(options.hostname, options.port or 80)
         if options.catchup:
             if not options.hostname:
-                parser.error('--test-catchup requires --hostname argument')
-            test_catchup(options.hostname, options.port or 8040,
-                         options.archive_interval)
+                parser.error("--test-catchup requires --hostname argument")
+            test_catchup(
+                options.hostname, options.port or 8040, options.archive_interval
+            )
         if options.sane_test:
             test_is_sane()
 
     def test_extension(hostname, port):
-        sources = [Source({'Sensor1': { 'enable': True, 'hostname': hostname, 'port': port, 'timeout': 2}}, 'Sensor1', False)]
+        sources = [
+            Source(
+                {
+                    "Sensor1": {
+                        "enable": True,
+                        "hostname": hostname,
+                        "port": port,
+                        "timeout": 2,
+                    }
+                },
+                "Sensor1",
+                False,
+            )
+        ]
         cfg = Configuration(
-            lock             = threading.Lock(),
-            concentrations   = None,
-            stale_since      = None,
-            archive_interval = 300,
-            poll_interval    = 5,
-            sources          = sources)
+            lock=threading.Lock(),
+            concentrations=None,
+            stale_since=None,
+            archive_interval=300,
+            poll_interval=5,
+            sources=sources,
+        )
         while True:
             with cfg.lock:
                 cfg.concentrations = get_concentrations(cfg)
-            print('%s:%d concentrations: %s' % (cfg.sources[0].hostname, cfg.sources[0].port, cfg.concentrations))
+            print(
+                "%s:%d concentrations: %s"
+                % (cfg.sources[0].hostname, cfg.sources[0].port, cfg.concentrations)
+            )
             packet: Dict[str, Any] = {}
             AirLink.fill_in_packet(cfg, packet)
-            print('Fields to be inserted into packet: %s' % packet)
+            print("Fields to be inserted into packet: %s" % packet)
             time.sleep(cfg.poll_interval)
 
     def test_catchup(hostname, port, archive_interval):
@@ -1537,69 +1807,100 @@ if __name__ == "__main__":
         the timeout is generous where the extension's own default is one
         second: the question here is what the proxy says, not whether it says
         it fast enough to be worth waiting for on weewx's main thread."""
-        source = Source({'Proxy1': {'enable': True, 'hostname': hostname,
-                                    'port': port, 'timeout': 5}}, 'Proxy1', True)
-        print('airlink-proxy %s:%d' % (source.hostname, source.port))
-        print('WeeWX archive interval assumed to be %d seconds'
-              ' (override with --archive-interval).' % archive_interval)
+        source = Source(
+            {
+                "Proxy1": {
+                    "enable": True,
+                    "hostname": hostname,
+                    "port": port,
+                    "timeout": 5,
+                }
+            },
+            "Proxy1",
+            True,
+        )
+        print("airlink-proxy %s:%d" % (source.hostname, source.port))
+        print(
+            "WeeWX archive interval assumed to be %d seconds"
+            " (override with --archive-interval)." % archive_interval
+        )
         print()
 
-        print('What the proxy answers:')
-        for command in ['/get-version', '/get-archive-interval-secs',
-                        '/get-earliest-timestamp']:
-            print('    %-28s %r' % (command, ask_proxy(source, command).value))
+        print("What the proxy answers:")
+        for command in [
+            "/get-version",
+            "/get-archive-interval-secs",
+            "/get-earliest-timestamp",
+        ]:
+            print("    %-28s %r" % (command, ask_proxy(source, command).value))
         print()
 
         answer = proxy_supports_catchup(source, archive_interval)
         if answer.value is None:
-            print('The proxy %s, so nothing else can be checked.  Catch-up'
-                  ' would leave the question open and ask again later.'
-                  % ('answered, but not with a version and interval it could'
-                     ' read' if answer.reachable else 'could not be reached'))
+            print(
+                "The proxy %s, so nothing else can be checked.  Catch-up"
+                " would leave the question open and ask again later."
+                % (
+                    "answered, but not with a version and interval it could" " read"
+                    if answer.reachable
+                    else "could not be reached"
+                )
+            )
             return
         if not answer.value:
-            print('This proxy will NOT be used to fill in archive records.'
-                  '  The reason is logged above.')
+            print(
+                "This proxy will NOT be used to fill in archive records."
+                "  The reason is logged above."
+            )
         else:
-            print('This proxy WILL be used to fill in archive records.')
+            print("This proxy WILL be used to fill in archive records.")
         print()
 
         # The last archive period that closed -- the one catch-up would be
         # asked about first.
         end_ts = int(time.time() / archive_interval) * archive_interval
         start_ts = end_ts - archive_interval
-        print('Last closed archive period, (%s, %s]:'
-              % (timestamp_to_string(start_ts), timestamp_to_string(end_ts)))
+        print(
+            "Last closed archive period, (%s, %s]:"
+            % (timestamp_to_string(start_ts), timestamp_to_string(end_ts))
+        )
         records = fetch_proxy_archive_records(source, start_ts, end_ts).value
         if records is None:
-            print('    the proxy could not be asked')
+            print("    the proxy could not be asked")
         elif not records:
-            print('    no archive records cover it, so this period would be'
-                  ' filled from the two minute average below, if it closed'
-                  ' within the last %d seconds -- and otherwise left empty'
-                  % TWO_MINUTE_AVERAGE_SECS)
+            print(
+                "    no archive records cover it, so this period would be"
+                " filled from the two minute average below, if it closed"
+                " within the last %d seconds -- and otherwise left empty"
+                % TWO_MINUTE_AVERAGE_SECS
+            )
         else:
-            print('    %d archive record(s) -> %s'
-                  % (len(records), average_pm_values(records)))
+            print(
+                "    %d archive record(s) -> %s"
+                % (len(records), average_pm_values(records))
+            )
 
         # A wider span, to show how much history the proxy actually holds.
         periods = 12
         span_ts = end_ts - periods * archive_interval
         records = fetch_proxy_archive_records(source, span_ts, end_ts).value
         if records is not None:
-            print('Last %d periods (since %s): %d archive record(s).'
-                  % (periods, timestamp_to_string(span_ts), len(records)))
+            print(
+                "Last %d periods (since %s): %d archive record(s)."
+                % (periods, timestamp_to_string(span_ts), len(records))
+            )
         print()
 
         record = fetch_proxy_two_minute_record(source).value
         if record is None:
-            print('/fetch-two-minute-record: no reading yet.')
+            print("/fetch-two-minute-record: no reading yet.")
         else:
-            print('/fetch-two-minute-record: %s' % average_pm_values([record]))
+            print("/fetch-two-minute-record: %s" % average_pm_values([record]))
 
     def test_is_sane():
         # A type-6 response as captured from a real AirLink.
-        good_type_6 = ('{"data": {"did": "001D0A100214", "name": "airlink", "ts": 1602389498,'
+        good_type_6 = (
+            '{"data": {"did": "001D0A100214", "name": "airlink", "ts": 1602389498,'
             ' "conditions": [{"lsid": 349506, "data_structure_type": 6, "temp": 67.7,'
             ' "hum": 72.2, "dew_point": 58.4, "wet_bulb": 61.2, "heat_index": 68.1,'
             ' "pm_1_last": 0, "pm_2p5_last": 0, "pm_10_last": 0, "pm_1": 0.0,'
@@ -1609,9 +1910,11 @@ if __name__ == "__main__":
             ' "pm_10_last_24_hours": 1.02, "pm_10_nowcast": 0.84,'
             ' "last_report_time": 1602389497, "pct_pm_data_last_1_hour": 100,'
             ' "pct_pm_data_last_3_hours": 100, "pct_pm_data_nowcast": 100,'
-            ' "pct_pm_data_last_24_hours": 100}]}, "error": null}')
+            ' "pct_pm_data_last_24_hours": 100}]}, "error": null}'
+        )
         # A type-5 response (early firmware): pm_10p0* field names.
-        good_type_5 = ('{"data": {"did": "001D0A1000AF", "name": "LusherClose Sheringham",'
+        good_type_5 = (
+            '{"data": {"did": "001D0A1000AF", "name": "LusherClose Sheringham",'
             ' "ts": 1601320120, "conditions": [{"lsid": 349639, "data_structure_type": 5,'
             ' "temp": 59.0, "hum": 69.3, "dew_point": 48.9, "wet_bulb": 52.6,'
             ' "heat_index": 58.1, "pm_1_last": 0, "pm_2p5_last": 0, "pm_10_last": 1,'
@@ -1622,7 +1925,8 @@ if __name__ == "__main__":
             ' "pm_10p0_nowcast": 2.27, "last_report_time": 1601320120,'
             ' "pct_pm_data_last_1_hour": 100, "pct_pm_data_last_3_hours": 95,'
             ' "pct_pm_data_nowcast": 23, "pct_pm_data_last_24_hours": 11}]},'
-            ' "error": null}')
+            ' "error": null}'
+        )
         j = json.loads(good_type_6)
         sane, reason = is_sane(j)
         assert sane, reason
@@ -1632,14 +1936,14 @@ if __name__ == "__main__":
         assert sane, reason
         # A malformed reading (non-numeric pm_1) must not be sane.
         j = json.loads(good_type_6)
-        j['data']['conditions'][0]['pm_1'] = 'abc'
+        j["data"]["conditions"][0]["pm_1"] = "abc"
         sane, _ = is_sane(j)
         assert not sane
         # An error response must not be sane.
         j = json.loads(good_type_6)
-        j['error'] = {'code': 409, 'message': 'Error'}
+        j["error"] = {"code": 409, "message": "Error"}
         sane, _ = is_sane(j)
         assert not sane
-        print('is_sane tests passed.')
+        print("is_sane tests passed.")
 
     main()

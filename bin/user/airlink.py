@@ -120,6 +120,10 @@ weewx.units.obs_group_dict["pm2_5_nowcast_aqi"] = "air_quality_index"
 weewx.units.obs_group_dict["pm2_5_nowcast_aqi_color"] = "air_quality_color"
 weewx.units.obs_group_dict["pm10_0_nowcast"] = "group_concentration"
 
+weewx.units.obs_group_dict["airlink_temperature"] = "group_temperature"
+weewx.units.obs_group_dict["airlink_dewpoint"] = "group_temperature"
+weewx.units.obs_group_dict["airlink_humidity"] = "group_percent"
+
 # The observations this extension can fill into an archive record.  The
 # 1m and nowcast variants are loop-only -- they are not database columns --
 # so there is nothing to fill them into.
@@ -175,6 +179,7 @@ class Concentrations:
     pm_10_nowcast: float
     hum: float
     temp: float
+    dew_point: Optional[float]
 
 
 @dataclass
@@ -276,6 +281,7 @@ def get_concentrations(cfg: Configuration):
                     pm_10_nowcast=record["pm_10_nowcast"],
                     hum=record["hum"],
                     temp=record["temp"],
+                    dew_point=record.get("dew_point"),
                 )
                 log.debug("get_concentrations: concentrations: %s" % concentrations)
                 return concentrations
@@ -978,7 +984,17 @@ class AirLink(StdService):
                     )
                 if cfg.concentrations.pm_10_nowcast is not None:
                     packet["pm10_0_nowcast"] = cfg.concentrations.pm_10_nowcast
-
+                c = cfg.concentrations
+                if c.hum is not None:
+                    packet["airlink_humidity"] = c.hum
+                for name, value in (
+                    ("airlink_temperature", c.temp),
+                    ("airlink_dewpoint", c.dew_point),
+                ):
+                    if value is not None:
+                        packet[name] = weewx.units.convertStd(
+                            (value, "degree_F", "group_temperature"), packet["usUnits"]
+                        )[0]
                 AirLink.record_injections(cfg, packet)
             else:
                 # Log at error level once per outage, not once per loop
